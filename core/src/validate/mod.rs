@@ -84,12 +84,69 @@ impl Validator {
                 Err(error_list)
             }
         } else {
-            // For Plans, also check for cycles
+            // Validate naming conventions
+            self.validate_naming_conventions(value)?;
+
+            // For Plans, also check for cycles and node IDs
             if kind == "Plan" {
                 self.validate_plan_graph_json(value)?;
+                self.validate_plan_node_ids(value)?;
             }
             Ok(())
         }
+    }
+
+    /// Validate naming conventions for metadata.name and metadata.namespace.
+    fn validate_naming_conventions(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
+        let metadata = value.get("metadata");
+
+        if let Some(meta) = metadata {
+            // Validate name
+            if let Some(name) = meta.get("name").and_then(|n| n.as_str()) {
+                if !is_valid_dns_label(name) {
+                    return Err(vec![ValidationError::InvalidName {
+                        field: "metadata.name".to_string(),
+                        value: name.to_string(),
+                    }]);
+                }
+            }
+
+            // Validate namespace
+            if let Some(namespace) = meta.get("namespace").and_then(|n| n.as_str()) {
+                if !is_valid_dns_label(namespace) {
+                    return Err(vec![ValidationError::InvalidName {
+                        field: "metadata.namespace".to_string(),
+                        value: namespace.to_string(),
+                    }]);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate Plan node IDs follow naming conventions.
+    fn validate_plan_node_ids(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
+        let nodes = value
+            .get("spec")
+            .and_then(|s| s.get("graph"))
+            .and_then(|g| g.get("nodes"))
+            .and_then(|n| n.as_array());
+
+        if let Some(nodes) = nodes {
+            for node in nodes {
+                if let Some(id) = node.get("id").and_then(|i| i.as_str()) {
+                    if !is_valid_node_id(id) {
+                        return Err(vec![ValidationError::InvalidName {
+                            field: "spec.graph.nodes[].id".to_string(),
+                            value: id.to_string(),
+                        }]);
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Validate a Plan's graph for cycles and other constraints.
@@ -230,6 +287,103 @@ fn compile_schema(schema_json: &str) -> Result<JSONSchema, ValidationError> {
         .map_err(|e| ValidationError::SchemaCompilationError(format!("Failed to compile schema: {}", e)))
 }
 
+/// Check if a string is a valid DNS label (Kubernetes naming convention).
+/// Must be lowercase, start with a letter, contain only letters, numbers, and hyphens.
+/// Maximum 63 characters.
+fn is_valid_dns_label(s: &str) -> bool {
+    if s.is_empty() || s.len() > 63 {
+        return false;
+    }
+
+    let mut chars = s.chars().peekable();
+
+    // Must start with a lowercase letter
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+
+    // Rest must be lowercase letters, digits, or hyphens
+    for c in chars {
+        if !c.is_ascii_lowercase() && !c.is_ascii_digit() && c != '-' {
+            return false;
+        }
+    }
+
+    // Must not end with a hyphen
+    if s.ends_with('-') {
+        return false;
+    }
+
+    true
+}
+
+/// Check if a string is a valid node ID.
+/// Similar to DNS labels but slightly more permissive - allows underscores.
+fn is_valid_node_id(s: &str) -> bool {
+    if s.is_empty() || s.len() > 63 {
+        return false;
+    }
+
+    let mut chars = s.chars().peekable();
+
+    // Must start with a lowercase letter
+    match chars.next() {
+        Some(c) if c.is_ascii_lowercase() => {}
+        _ => return false,
+    }
+
+    // Rest must be lowercase letters, digits, hyphens, or underscores
+    for c in chars {
+        if !c.is_ascii_lowercase() && !c.is_ascii_digit() && c != '-' && c != '_' {
+            return false;
+        }
+    }
+
+    true
+}
+
+#[cfg(test)]
+mod naming_tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_dns_labels() {
+        assert!(is_valid_dns_label("my-goal"));
+        assert!(is_valid_dns_label("planspec"));
+        assert!(is_valid_dns_label("test-123"));
+        assert!(is_valid_dns_label("a"));
+        assert!(is_valid_dns_label("abc123"));
+    }
+
+    #[test]
+    fn test_invalid_dns_labels() {
+        assert!(!is_valid_dns_label("")); // empty
+        assert!(!is_valid_dns_label("My-Goal")); // uppercase
+        assert!(!is_valid_dns_label("123-test")); // starts with number
+        assert!(!is_valid_dns_label("-test")); // starts with hyphen
+        assert!(!is_valid_dns_label("test-")); // ends with hyphen
+        assert!(!is_valid_dns_label("test_name")); // underscore not allowed
+        assert!(!is_valid_dns_label("test.name")); // dot not allowed
+    }
+
+    #[test]
+    fn test_valid_node_ids() {
+        assert!(is_valid_node_id("step-1"));
+        assert!(is_valid_node_id("my_task"));
+        assert!(is_valid_node_id("schema-and-conventions"));
+        assert!(is_valid_node_id("v0-ready"));
+    }
+
+    #[test]
+    fn test_invalid_node_ids() {
+        assert!(!is_valid_node_id("")); // empty
+        assert!(!is_valid_node_id("Step-1")); // uppercase
+        assert!(!is_valid_node_id("1-step")); // starts with number
+        assert!(!is_valid_node_id("step.one")); // dot not allowed
+    }
+}
+
 /// Error during validation.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum ValidationError {
@@ -260,6 +414,10 @@ pub enum ValidationError {
     /// Invalid edge reference.
     #[error("edge '{edge_field}' references non-existent node '{node_id}'")]
     InvalidEdgeReference { edge_field: String, node_id: String },
+
+    /// Invalid resource name (must be lowercase, alphanumeric, hyphens only).
+    #[error("invalid {field}: '{value}' - must be lowercase, start with letter, contain only letters, numbers, and hyphens")]
+    InvalidName { field: String, value: String },
 }
 
 impl From<GraphError> for ValidationError {

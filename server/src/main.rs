@@ -1,13 +1,16 @@
 use anyhow::Result;
 use axum::{routing::get, Router};
 use std::net::SocketAddr;
+use std::time::Duration;
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+mod controllers;
 mod routes;
 mod storage;
 mod watch;
 
+use controllers::PlanResolver;
 use storage::Store;
 use watch::WatchBroadcaster;
 
@@ -35,7 +38,22 @@ async fn main() -> Result<()> {
     // Initialize watch broadcaster
     let broadcaster = WatchBroadcaster::new();
 
-    let state = AppState { store, broadcaster };
+    let state = AppState {
+        store: store.clone(),
+        broadcaster: broadcaster.clone(),
+    };
+
+    // Start the plan resolution controller as a background task
+    let resolver = PlanResolver::new(store, broadcaster);
+    tokio::spawn(async move {
+        let interval = Duration::from_secs(5);
+        loop {
+            if let Err(e) = resolver.reconcile_all().await {
+                tracing::warn!(error = %e, "Plan resolution reconcile failed");
+            }
+            tokio::time::sleep(interval).await;
+        }
+    });
 
     // Build router
     let app = Router::new()

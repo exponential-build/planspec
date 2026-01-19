@@ -15,8 +15,8 @@ use planspec_core::Validator;
 
 use crate::AppState;
 
-/// Populate Plan status with phase and nodeCount
-fn populate_plan_status(body: &mut Value) {
+/// Populate Plan status with phase, nodeCount, and validation condition
+fn populate_plan_status(body: &mut Value, generation: i64) {
     let node_count = body
         .get("spec")
         .and_then(|s| s.get("graph"))
@@ -25,12 +25,25 @@ fn populate_plan_status(body: &mut Value) {
         .map(|a| a.len())
         .unwrap_or(0);
 
+    let now = chrono::Utc::now().to_rfc3339();
+
     // Initialize or update status
     if body.get("status").is_none() {
         body["status"] = json!({});
     }
     body["status"]["phase"] = json!("Ready");
     body["status"]["nodeCount"] = json!(node_count);
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add Valid condition
+    body["status"]["conditions"] = json!([{
+        "type": "Valid",
+        "status": "True",
+        "reason": "SchemaValid",
+        "message": "Plan passed schema validation",
+        "lastTransitionTime": now,
+        "observedGeneration": generation
+    }]);
 }
 
 /// Map resource type from URL to Kind
@@ -200,9 +213,9 @@ pub async fn create(
         metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
     }
 
-    // Populate status for Plans
+    // Populate status for Plans (generation 1 for new resources)
     if kind == "Plan" {
-        populate_plan_status(&mut body);
+        populate_plan_status(&mut body, 1);
     }
 
     let name = body
@@ -320,9 +333,21 @@ pub async fn replace(
         metadata.insert("name".to_string(), Value::String(name.clone()));
     }
 
-    // Populate status for Plans
+    // Get existing resource to determine generation for status
+    let existing_generation = state
+        .store
+        .get(&namespace, kind, &name)
+        .await
+        .ok()
+        .flatten()
+        .map(|obj| obj.generation)
+        .unwrap_or(1);
+
+    // Populate status for Plans (generation may increment on spec change)
     if kind == "Plan" {
-        populate_plan_status(&mut body);
+        // Check if spec changed - if so, generation will be incremented
+        let new_generation = existing_generation + 1; // Assume it might change
+        populate_plan_status(&mut body, new_generation);
     }
 
     let (stored, event) = state

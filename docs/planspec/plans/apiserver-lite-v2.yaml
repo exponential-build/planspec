@@ -78,7 +78,7 @@ spec:
 
       - id: watch
         kind: Task
-        description: "Implement watch endpoint with broadcast channel and SSE streaming"
+        description: "Implement watch endpoint with broadcast channel and NDJSON streaming"
         capabilityRef:
           name: code-generation
         outputs:
