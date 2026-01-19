@@ -1,0 +1,17 @@
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: ${EXECUTION_NAME}
+  namespace: planspec
+spec:
+  goalRef:
+    name: ${GOAL_NAME}
+  planRef:
+    name: ${PLAN_NAME}
+  # Optional: specific binding to use
+  # bindingRef:
+  #   name: default-bindings
+  # Optional: execution parameters
+  # parameters:
+  #   mode: interactive
+  #   executor: claude-code

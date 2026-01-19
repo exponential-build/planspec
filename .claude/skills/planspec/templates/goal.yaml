@@ -1,0 +1,21 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: ${GOAL_NAME}
+  namespace: planspec
+spec:
+  description: "${DESCRIPTION}"
+  acceptanceCriteria:
+    - description: "${CRITERION_1}"
+    - description: "${CRITERION_2}"
+  # Optional fields:
+  # constraints:
+  #   language: rust
+  #   framework: axum
+  # context:
+  #   - name: background
+  #     format: markdown
+  #     content: |
+  #       Additional context here...
+  # timeout: "7d"
+  priority: ${PRIORITY:-100}

@@ -1,0 +1,63 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: ${PLAN_NAME}
+  namespace: planspec
+  labels:
+    planspec.io/goal: ${GOAL_NAME}
+    planspec.io/series: ${SERIES_NAME}
+    planspec.io/version: "${VERSION}"
+spec:
+  goalRef:
+    name: ${GOAL_NAME}
+  series: ${SERIES_NAME}
+  version: "${VERSION}"
+  # Optional: supersedes previous version
+  # supersedes:
+  #   - name: ${SERIES_NAME}-v${PREV_VERSION}
+  description: "${DESCRIPTION}"
+  # Optional: plan-level context
+  # context:
+  #   - format: markdown
+  #     content: |
+  #       Implementation notes...
+  graph:
+    nodes:
+      - id: ${NODE_1_ID}
+        kind: Task  # Task | Gate | External | Group
+        description: "${NODE_1_DESCRIPTION}"
+        capabilityRef:
+          name: code-generation  # or other capability
+        # Optional fields:
+        # context:
+        #   - format: markdown
+        #     content: |
+        #       Detailed guidance...
+        # outputs:
+        #   - path/to/output/file
+        # inputs:
+        #   key: value
+        # timeout: "1h"
+        # retries: 2
+        # when: "condition"
+
+      - id: ${NODE_2_ID}
+        kind: Task
+        description: "${NODE_2_DESCRIPTION}"
+        capabilityRef:
+          name: code-generation
+
+      - id: review
+        kind: Gate
+        description: "Human review and approval"
+        when: "manualApproval"
+
+    edges:
+      - from: ${NODE_1_ID}
+        to: ${NODE_2_ID}
+      - from: ${NODE_2_ID}
+        to: review
+      # Edge types: hard (default), soft
+      # - from: a
+      #   to: b
+      #   type: soft
