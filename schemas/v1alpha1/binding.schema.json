@@ -1,0 +1,144 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/binding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Binding",
+  "description": "Resolution of capability requirements to provider targets",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Binding"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/bindingSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/bindingStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "bindingSpec": {
+      "type": "object",
+      "description": "Specification of the binding",
+      "required": ["rules"],
+      "properties": {
+        "rules": {
+          "type": "array",
+          "description": "Rules for resolving capabilities to providers",
+          "items": {
+            "$ref": "#/$defs/bindingRule"
+          },
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "bindingRule": {
+      "type": "object",
+      "description": "A rule for binding capabilities to providers",
+      "required": ["selector", "target"],
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/bindingSelector",
+          "description": "What this rule matches"
+        },
+        "target": {
+          "$ref": "#/$defs/bindingTarget",
+          "description": "The provider to use"
+        }
+      },
+      "additionalProperties": false
+    },
+    "bindingSelector": {
+      "type": "object",
+      "description": "Selector for matching capabilities or nodes",
+      "properties": {
+        "capabilityRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Match all uses of a capability"
+        },
+        "planRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Match a specific plan"
+        },
+        "nodeId": {
+          "type": "string",
+          "description": "Match a specific node (requires planRef)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        { "required": ["capabilityRef"] },
+        { "required": ["planRef", "nodeId"] }
+      ]
+    },
+    "bindingTarget": {
+      "type": "object",
+      "description": "Target provider for the binding",
+      "required": ["provider"],
+      "properties": {
+        "provider": {
+          "type": "string",
+          "description": "Implementation-defined provider string/URI",
+          "minLength": 1,
+          "maxLength": 512
+        },
+        "config": {
+          "type": "object",
+          "description": "Provider-specific configuration",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "bindingStatus": {
+      "type": "object",
+      "description": "Status of the binding",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current phase",
+          "enum": ["Ready", "PartiallyBound", "Unresolved"]
+        },
+        "boundCount": {
+          "type": "integer",
+          "description": "Number of successfully bound capabilities",
+          "minimum": 0
+        },
+        "unboundCapabilities": {
+          "type": "array",
+          "description": "Capabilities that could not be resolved",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          }
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

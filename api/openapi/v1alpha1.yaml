@@ -1,0 +1,1473 @@
+openapi: 3.1.0
+info:
+  title: PlanSpec API
+  description: |
+    Kubernetes-style declarative API for work orchestration.
+
+    PlanSpec provides a control plane for expressing goals, plans, and executions.
+    All resources are namespaced and follow Kubernetes conventions.
+  version: v1alpha1
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  contact:
+    name: Exponential Build, Inc.
+    url: https://exponential.build
+
+servers:
+  - url: /apis/planspec.io/v1alpha1
+    description: Base path for all PlanSpec API operations
+
+tags:
+  - name: Goals
+    description: High-level objectives with acceptance criteria
+  - name: Plans
+    description: DAGs of work with embedded nodes and edges
+  - name: Capabilities
+    description: Reusable abilities that agents can provide
+  - name: Bindings
+    description: Resolution of capabilities to provider targets
+  - name: Executions
+    description: Intent to run a Plan with specific bindings
+  - name: Operations
+    description: Bulk operations and utilities
+
+paths:
+  # Goals
+  /namespaces/{namespace}/goals:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Goals]
+      summary: List goals in a namespace
+      operationId: listNamespacedGoals
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/continue'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalList'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Goals]
+      summary: Create a goal
+      operationId: createNamespacedGoal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Goal'
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/Goal'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /namespaces/{namespace}/goals/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Goals]
+      summary: Get a goal
+      operationId: readNamespacedGoal
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Goals]
+      summary: Replace a goal
+      operationId: replaceNamespacedGoal
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Goal'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    patch:
+      tags: [Goals]
+      summary: Patch a goal
+      operationId: patchNamespacedGoal
+      requestBody:
+        required: true
+        content:
+          application/merge-patch+json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+    delete:
+      tags: [Goals]
+      summary: Delete a goal
+      operationId: deleteNamespacedGoal
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /namespaces/{namespace}/goals/{name}/status:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    put:
+      tags: [Goals]
+      summary: Update goal status (controllers only)
+      operationId: replaceNamespacedGoalStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Goal'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Goal'
+
+  /namespaces/{namespace}/goals/{name}/plan:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Goals]
+      summary: Get the active plan for a goal
+      operationId: readNamespacedGoalPlan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # Plans
+  /namespaces/{namespace}/plans:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Plans]
+      summary: List plans in a namespace
+      operationId: listNamespacedPlans
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/continue'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanList'
+    post:
+      tags: [Plans]
+      summary: Create a plan
+      operationId: createNamespacedPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plan'
+          application/yaml:
+            schema:
+              $ref: '#/components/schemas/Plan'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /namespaces/{namespace}/plans/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Plans]
+      summary: Get a plan
+      operationId: readNamespacedPlan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Plans]
+      summary: Replace a plan
+      operationId: replaceNamespacedPlan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Plan'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plan'
+    delete:
+      tags: [Plans]
+      summary: Delete a plan
+      operationId: deleteNamespacedPlan
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  /namespaces/{namespace}/plans/{name}/graph:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Plans]
+      summary: Get the graph view of a plan
+      operationId: readNamespacedPlanGraph
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Graph'
+
+  # Capabilities
+  /namespaces/{namespace}/capabilities:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Capabilities]
+      summary: List capabilities in a namespace
+      operationId: listNamespacedCapabilities
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CapabilityList'
+    post:
+      tags: [Capabilities]
+      summary: Create a capability
+      operationId: createNamespacedCapability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Capability'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capability'
+
+  /namespaces/{namespace}/capabilities/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Capabilities]
+      summary: Get a capability
+      operationId: readNamespacedCapability
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capability'
+    put:
+      tags: [Capabilities]
+      summary: Replace a capability
+      operationId: replaceNamespacedCapability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Capability'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Capability'
+    delete:
+      tags: [Capabilities]
+      summary: Delete a capability
+      operationId: deleteNamespacedCapability
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  # Bindings
+  /namespaces/{namespace}/bindings:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Bindings]
+      summary: List bindings in a namespace
+      operationId: listNamespacedBindings
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BindingList'
+    post:
+      tags: [Bindings]
+      summary: Create a binding
+      operationId: createNamespacedBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Binding'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Binding'
+
+  /namespaces/{namespace}/bindings/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Bindings]
+      summary: Get a binding
+      operationId: readNamespacedBinding
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Binding'
+    put:
+      tags: [Bindings]
+      summary: Replace a binding
+      operationId: replaceNamespacedBinding
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Binding'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Binding'
+    delete:
+      tags: [Bindings]
+      summary: Delete a binding
+      operationId: deleteNamespacedBinding
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  # Executions
+  /namespaces/{namespace}/executions:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Executions]
+      summary: List executions in a namespace
+      operationId: listNamespacedExecutions
+      parameters:
+        - $ref: '#/components/parameters/labelSelector'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/continue'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionList'
+    post:
+      tags: [Executions]
+      summary: Create an execution (starts immediately)
+      operationId: createNamespacedExecution
+      description: |
+        Creating an execution triggers it immediately.
+        The spec is immutable after creation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Execution'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+
+  /namespaces/{namespace}/executions/{name}:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    get:
+      tags: [Executions]
+      summary: Get an execution
+      operationId: readNamespacedExecution
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+    delete:
+      tags: [Executions]
+      summary: Delete an execution
+      operationId: deleteNamespacedExecution
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+
+  /namespaces/{namespace}/executions/{name}/status:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+      - $ref: '#/components/parameters/name'
+    put:
+      tags: [Executions]
+      summary: Update execution status (controllers only)
+      operationId: replaceNamespacedExecutionStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Execution'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Execution'
+
+  # Watch endpoints
+  /namespaces/{namespace}/goals/watch:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Goals]
+      summary: Watch goals in a namespace
+      operationId: watchNamespacedGoals
+      parameters:
+        - $ref: '#/components/parameters/since'
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Event stream
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/WatchEvent'
+
+  /namespaces/{namespace}/plans/watch:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Plans]
+      summary: Watch plans in a namespace
+      operationId: watchNamespacedPlans
+      parameters:
+        - $ref: '#/components/parameters/since'
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Event stream
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/WatchEvent'
+
+  /namespaces/{namespace}/executions/watch:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    get:
+      tags: [Executions]
+      summary: Watch executions in a namespace
+      operationId: watchNamespacedExecutions
+      parameters:
+        - $ref: '#/components/parameters/since'
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Event stream
+          content:
+            application/x-ndjson:
+              schema:
+                $ref: '#/components/schemas/WatchEvent'
+
+  # Cross-namespace listing (query param)
+  /goals:
+    get:
+      tags: [Goals]
+      summary: List goals across all namespaces
+      operationId: listGoalsForAllNamespaces
+      parameters:
+        - name: allNamespaces
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoalList'
+
+  /plans:
+    get:
+      tags: [Plans]
+      summary: List plans across all namespaces
+      operationId: listPlansForAllNamespaces
+      parameters:
+        - name: allNamespaces
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlanList'
+
+  /executions:
+    get:
+      tags: [Executions]
+      summary: List executions across all namespaces
+      operationId: listExecutionsForAllNamespaces
+      parameters:
+        - name: allNamespaces
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - $ref: '#/components/parameters/labelSelector'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionList'
+
+  # Bulk operations
+  /namespaces/{namespace}/apply:
+    parameters:
+      - $ref: '#/components/parameters/namespace'
+    post:
+      tags: [Operations]
+      summary: Apply multiple resources atomically
+      operationId: applyNamespacedResources
+      description: |
+        Atomic apply within a namespace.
+        Resources are applied in dependency order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnyResource'
+          application/yaml:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnyResource'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplyResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /validate:
+    post:
+      tags: [Operations]
+      summary: Validate resources without persisting
+      operationId: validateResources
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnyResource'
+          application/yaml:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/AnyResource'
+      responses:
+        '200':
+          description: Valid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+components:
+  parameters:
+    namespace:
+      name: namespace
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+    name:
+      name: name
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+    labelSelector:
+      name: labelSelector
+      in: query
+      schema:
+        type: string
+      description: Label selector for filtering
+    limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 500
+      description: Maximum number of results
+    continue:
+      name: continue
+      in: query
+      schema:
+        type: string
+      description: Continue token for pagination
+    since:
+      name: since
+      in: query
+      schema:
+        type: string
+      description: Resume watch from revision
+
+  responses:
+    BadRequest:
+      description: Bad Request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Status'
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Status'
+    NotFound:
+      description: Not Found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Status'
+    Conflict:
+      description: Conflict (resource version mismatch)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Status'
+
+  schemas:
+    # Common
+    ObjectMeta:
+      type: object
+      required: [name, namespace]
+      properties:
+        name:
+          type: string
+          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+        namespace:
+          type: string
+          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+        uid:
+          type: string
+          format: uuid
+          readOnly: true
+        resourceVersion:
+          type: string
+          readOnly: true
+        generation:
+          type: integer
+          readOnly: true
+        creationTimestamp:
+          type: string
+          format: date-time
+          readOnly: true
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        annotations:
+          type: object
+          additionalProperties:
+            type: string
+        ownerReferences:
+          type: array
+          items:
+            $ref: '#/components/schemas/OwnerReference'
+
+    OwnerReference:
+      type: object
+      required: [apiVersion, kind, name, uid]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+        uid:
+          type: string
+        controller:
+          type: boolean
+        blockOwnerDeletion:
+          type: boolean
+
+    ObjectReference:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        namespace:
+          type: string
+        uid:
+          type: string
+
+    Condition:
+      type: object
+      required: [type, status, reason, lastTransitionTime]
+      properties:
+        type:
+          type: string
+        status:
+          type: string
+          enum: [True, False, Unknown]
+        reason:
+          type: string
+        message:
+          type: string
+        lastTransitionTime:
+          type: string
+          format: date-time
+        observedGeneration:
+          type: integer
+
+    Status:
+      type: object
+      properties:
+        kind:
+          type: string
+          default: Status
+        apiVersion:
+          type: string
+          default: planspec.io/v1alpha1
+        status:
+          type: string
+          enum: [Success, Failure]
+        message:
+          type: string
+        reason:
+          type: string
+        details:
+          type: object
+          properties:
+            causes:
+              type: array
+              items:
+                type: object
+                properties:
+                  resource:
+                    type: string
+                  reason:
+                    type: string
+                  message:
+                    type: string
+
+    # Goal
+    Goal:
+      type: object
+      required: [apiVersion, kind, metadata, spec]
+      properties:
+        apiVersion:
+          type: string
+          const: planspec.io/v1alpha1
+        kind:
+          type: string
+          const: Goal
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/GoalSpec'
+        status:
+          $ref: '#/components/schemas/GoalStatus'
+
+    GoalSpec:
+      type: object
+      required: [description]
+      properties:
+        description:
+          type: string
+        constraints:
+          type: object
+          additionalProperties: true
+        acceptanceCriteria:
+          type: array
+          items:
+            type: object
+            properties:
+              description:
+                type: string
+        planSelector:
+          $ref: '#/components/schemas/LabelSelector'
+        timeout:
+          type: string
+        priority:
+          type: integer
+
+    GoalStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Pending, Planning, Ready, Executing, Succeeded, Failed, Cancelled]
+        activePlanRef:
+          $ref: '#/components/schemas/ObjectReference'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        observedGeneration:
+          type: integer
+
+    GoalList:
+      type: object
+      required: [apiVersion, kind, items]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          const: GoalList
+        metadata:
+          type: object
+          properties:
+            resourceVersion:
+              type: string
+            continue:
+              type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Goal'
+
+    # Plan
+    Plan:
+      type: object
+      required: [apiVersion, kind, metadata, spec]
+      properties:
+        apiVersion:
+          type: string
+          const: planspec.io/v1alpha1
+        kind:
+          type: string
+          const: Plan
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/PlanSpec'
+        status:
+          $ref: '#/components/schemas/PlanStatus'
+
+    PlanSpec:
+      type: object
+      required: [description, graph]
+      properties:
+        goalRef:
+          $ref: '#/components/schemas/ObjectReference'
+        series:
+          type: string
+        version:
+          type: string
+        supersedes:
+          type: array
+          items:
+            $ref: '#/components/schemas/ObjectReference'
+        description:
+          type: string
+        graph:
+          $ref: '#/components/schemas/Graph'
+
+    PlanStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Ready, Invalid]
+        nodeCount:
+          type: integer
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        observedGeneration:
+          type: integer
+
+    PlanList:
+      type: object
+      required: [apiVersion, kind, items]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          const: PlanList
+        metadata:
+          type: object
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Plan'
+
+    Graph:
+      type: object
+      required: [nodes]
+      properties:
+        nodes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Node'
+        edges:
+          type: array
+          items:
+            $ref: '#/components/schemas/Edge'
+
+    Node:
+      type: object
+      required: [id, kind, description]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [Task, Gate, Group, External]
+        description:
+          type: string
+        capabilityRef:
+          $ref: '#/components/schemas/ObjectReference'
+        inputs:
+          type: object
+          additionalProperties: true
+        outputs:
+          type: array
+          items:
+            type: string
+        timeout:
+          type: string
+        retries:
+          type: integer
+        when:
+          type: string
+
+    Edge:
+      type: object
+      required: [from, to]
+      properties:
+        from:
+          type: string
+        to:
+          type: string
+        type:
+          type: string
+          enum: [hard, soft]
+
+    # Capability
+    Capability:
+      type: object
+      required: [apiVersion, kind, metadata, spec]
+      properties:
+        apiVersion:
+          type: string
+          const: planspec.io/v1alpha1
+        kind:
+          type: string
+          const: Capability
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/CapabilitySpec'
+        status:
+          $ref: '#/components/schemas/CapabilityStatus'
+
+    CapabilitySpec:
+      type: object
+      required: [description]
+      properties:
+        displayName:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParameterDefinition'
+        outputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ParameterDefinition'
+        requirements:
+          type: array
+          items:
+            type: object
+            properties:
+              capability:
+                type: string
+              optional:
+                type: boolean
+
+    CapabilityStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Available, Unavailable, Deprecated]
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        observedGeneration:
+          type: integer
+
+    CapabilityList:
+      type: object
+      required: [apiVersion, kind, items]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          const: CapabilityList
+        metadata:
+          type: object
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Capability'
+
+    ParameterDefinition:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [string, number, boolean, object, array]
+        description:
+          type: string
+        required:
+          type: boolean
+        default: {}
+
+    # Binding
+    Binding:
+      type: object
+      required: [apiVersion, kind, metadata, spec]
+      properties:
+        apiVersion:
+          type: string
+          const: planspec.io/v1alpha1
+        kind:
+          type: string
+          const: Binding
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/BindingSpec'
+        status:
+          $ref: '#/components/schemas/BindingStatus'
+
+    BindingSpec:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: '#/components/schemas/BindingRule'
+
+    BindingRule:
+      type: object
+      required: [selector, target]
+      properties:
+        selector:
+          type: object
+          properties:
+            capabilityRef:
+              $ref: '#/components/schemas/ObjectReference'
+            planRef:
+              $ref: '#/components/schemas/ObjectReference'
+            nodeId:
+              type: string
+        target:
+          type: object
+          required: [provider]
+          properties:
+            provider:
+              type: string
+            config:
+              type: object
+              additionalProperties: true
+
+    BindingStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Ready, PartiallyBound, Unresolved]
+        boundCount:
+          type: integer
+        unboundCapabilities:
+          type: array
+          items:
+            type: string
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        observedGeneration:
+          type: integer
+
+    BindingList:
+      type: object
+      required: [apiVersion, kind, items]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          const: BindingList
+        metadata:
+          type: object
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Binding'
+
+    # Execution
+    Execution:
+      type: object
+      required: [apiVersion, kind, metadata, spec]
+      properties:
+        apiVersion:
+          type: string
+          const: planspec.io/v1alpha1
+        kind:
+          type: string
+          const: Execution
+        metadata:
+          $ref: '#/components/schemas/ObjectMeta'
+        spec:
+          $ref: '#/components/schemas/ExecutionSpec'
+        status:
+          $ref: '#/components/schemas/ExecutionStatus'
+
+    ExecutionSpec:
+      type: object
+      required: [planRef]
+      properties:
+        goalRef:
+          $ref: '#/components/schemas/ObjectReference'
+        planRef:
+          $ref: '#/components/schemas/ObjectReference'
+        bindingRef:
+          $ref: '#/components/schemas/ObjectReference'
+        runtimeRef:
+          $ref: '#/components/schemas/ObjectReference'
+        parameters:
+          type: object
+          additionalProperties: true
+
+    ExecutionStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Pending, Running, Succeeded, Failed, Cancelled]
+        runId:
+          type: string
+        startTime:
+          type: string
+          format: date-time
+        completionTime:
+          type: string
+          format: date-time
+        nodeStatuses:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/NodeStatus'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Artifact'
+        conditions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Condition'
+        observedGeneration:
+          type: integer
+
+    NodeStatus:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [Pending, Running, Succeeded, Failed, Skipped, Cancelled]
+        startTime:
+          type: string
+          format: date-time
+        completionTime:
+          type: string
+          format: date-time
+        attempt:
+          type: integer
+        outputs:
+          type: object
+          additionalProperties: true
+        message:
+          type: string
+
+    Artifact:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum: [file, directory, url, data]
+        path:
+          type: string
+        url:
+          type: string
+          format: uri
+        checksum:
+          type: string
+        size:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties:
+            type: string
+
+    ExecutionList:
+      type: object
+      required: [apiVersion, kind, items]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          const: ExecutionList
+        metadata:
+          type: object
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Execution'
+
+    # Utilities
+    LabelSelector:
+      type: object
+      properties:
+        matchLabels:
+          type: object
+          additionalProperties:
+            type: string
+        matchExpressions:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              operator:
+                type: string
+                enum: [In, NotIn, Exists, DoesNotExist]
+              values:
+                type: array
+                items:
+                  type: string
+
+    WatchEvent:
+      type: object
+      required: [type, object]
+      properties:
+        type:
+          type: string
+          enum: [ADDED, MODIFIED, DELETED]
+        object:
+          $ref: '#/components/schemas/AnyResource'
+        rev:
+          type: string
+
+    AnyResource:
+      type: object
+      required: [apiVersion, kind]
+      properties:
+        apiVersion:
+          type: string
+        kind:
+          type: string
+          enum: [Goal, Plan, Capability, Binding, Execution]
+      additionalProperties: true
+
+    ApplyResult:
+      type: object
+      properties:
+        applied:
+          type: array
+          items:
+            type: object
+            properties:
+              kind:
+                type: string
+              name:
+                type: string
+              namespace:
+                type: string
+              action:
+                type: string
+                enum: [created, updated, unchanged]
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              resource:
+                type: string
+              reason:
+                type: string
+              message:
+                type: string

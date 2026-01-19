@@ -1,0 +1,30 @@
+{
+  "$id": "https://planspec.io/schemas/common/reference.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ObjectReference",
+  "description": "Reference to another PlanSpec resource",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Name of the referenced resource",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Namespace of the referenced resource. Defaults to the referring object's namespace.",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "uid": {
+      "type": "string",
+      "description": "UID of the referenced resource for strong references. Reserved for future use.",
+      "format": "uuid"
+    }
+  },
+  "additionalProperties": false
+}

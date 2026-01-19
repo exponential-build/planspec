@@ -1,0 +1,151 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/capability.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Capability",
+  "description": "A reusable ability that agents can provide",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Capability"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/capabilitySpec"
+    },
+    "status": {
+      "$ref": "#/$defs/capabilityStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "capabilitySpec": {
+      "type": "object",
+      "description": "Specification of the capability",
+      "required": ["description"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Human-friendly name for display",
+          "maxLength": 128
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this capability does",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "category": {
+          "type": "string",
+          "description": "Category for organization",
+          "maxLength": 64
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Input parameters this capability accepts",
+          "items": {
+            "$ref": "#/$defs/parameterDefinition"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output artifacts this capability produces",
+          "items": {
+            "$ref": "#/$defs/parameterDefinition"
+          }
+        },
+        "requirements": {
+          "type": "array",
+          "description": "Other capabilities this one depends on",
+          "items": {
+            "$ref": "#/$defs/capabilityRequirement"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "parameterDefinition": {
+      "type": "object",
+      "description": "Definition of an input or output parameter",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+          "maxLength": 64
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type",
+          "enum": ["string", "number", "boolean", "object", "array"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the parameter",
+          "maxLength": 1024
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this parameter is required",
+          "default": false
+        },
+        "default": {
+          "description": "Default value if not provided"
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityRequirement": {
+      "type": "object",
+      "description": "A required capability dependency",
+      "required": ["capability"],
+      "properties": {
+        "capability": {
+          "type": "string",
+          "description": "Name of the required capability",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Whether this requirement is optional",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityStatus": {
+      "type": "object",
+      "description": "Status of the capability",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current phase",
+          "enum": ["Available", "Unavailable", "Deprecated"]
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          }
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

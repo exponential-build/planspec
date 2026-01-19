@@ -1,0 +1,121 @@
+{
+  "$id": "https://planspec.io/schemas/common/graph.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Graph",
+  "description": "DAG structure for Plan nodes and edges",
+  "type": "object",
+  "required": ["nodes"],
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "description": "Nodes in the DAG",
+      "items": {
+        "$ref": "#/$defs/node"
+      },
+      "minItems": 1
+    },
+    "edges": {
+      "type": "array",
+      "description": "Edges connecting nodes",
+      "items": {
+        "$ref": "#/$defs/edge"
+      },
+      "default": []
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "node": {
+      "type": "object",
+      "description": "A node in the plan DAG",
+      "required": ["id", "kind", "description"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier within the plan",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "kind": {
+          "type": "string",
+          "description": "Type of node",
+          "enum": ["Task", "Gate", "Group", "External"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this node accomplishes",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "capabilityRef": {
+          "$ref": "reference.schema.json",
+          "description": "Reference to the required capability"
+        },
+        "inputs": {
+          "type": "object",
+          "description": "Input values for this node",
+          "additionalProperties": true
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Expected output names",
+          "items": {
+            "type": "string"
+          }
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum execution time (Go duration format: 1h30m, 24h, 7d)",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+        },
+        "retries": {
+          "type": "integer",
+          "description": "Number of retry attempts",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 0
+        },
+        "when": {
+          "type": "string",
+          "description": "Condition expression for conditional execution",
+          "maxLength": 1024
+        }
+      },
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "description": "An edge connecting two nodes",
+      "required": ["from", "to"],
+      "properties": {
+        "from": {
+          "type": "string",
+          "description": "Source node ID",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "to": {
+          "type": "string",
+          "description": "Target node ID",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "type": {
+          "type": "string",
+          "description": "Type of dependency. Defaults to 'hard' in v0.",
+          "enum": ["hard", "soft"],
+          "default": "hard"
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodeKind": {
+      "type": "string",
+      "description": "Type of node",
+      "enum": ["Task", "Gate", "Group", "External"]
+    }
+  }
+}

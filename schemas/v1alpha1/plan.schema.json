@@ -1,0 +1,101 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/plan.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Plan",
+  "description": "A DAG of work with embedded nodes and edges",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Plan"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/planSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/planStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "planSpec": {
+      "type": "object",
+      "description": "Specification of the plan",
+      "required": ["description", "graph"],
+      "properties": {
+        "goalRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reference to the goal (optional, supports reusable plans)"
+        },
+        "series": {
+          "type": "string",
+          "description": "Stable plan family identifier",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
+        },
+        "version": {
+          "type": "string",
+          "description": "Version within the series",
+          "maxLength": 63
+        },
+        "supersedes": {
+          "type": "array",
+          "description": "Direct predecessors (usually one)",
+          "items": {
+            "$ref": "../common/reference.schema.json"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the plan",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "graph": {
+          "$ref": "../common/graph.schema.json",
+          "description": "The DAG structure"
+        }
+      },
+      "additionalProperties": false
+    },
+    "planStatus": {
+      "type": "object",
+      "description": "Status of the plan",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current phase",
+          "enum": ["Ready", "Invalid"]
+        },
+        "nodeCount": {
+          "type": "integer",
+          "description": "Number of nodes in the graph",
+          "minimum": 0
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          }
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

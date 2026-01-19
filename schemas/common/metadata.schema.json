@@ -1,0 +1,115 @@
+{
+  "$id": "https://planspec.io/schemas/common/metadata.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ObjectMeta",
+  "description": "Metadata common to all PlanSpec resources",
+  "type": "object",
+  "required": ["name", "namespace"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Unique identifier within the namespace. Must be DNS-subdomain format.",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Namespace for resource isolation",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "uid": {
+      "type": "string",
+      "description": "System-generated unique identifier (UUID). Clients MUST NOT set this field.",
+      "format": "uuid",
+      "readOnly": true
+    },
+    "resourceVersion": {
+      "type": "string",
+      "description": "Optimistic concurrency control token. Clients MUST NOT set this field on create.",
+      "readOnly": true
+    },
+    "generation": {
+      "type": "integer",
+      "description": "Incremented on spec changes only. Clients MUST NOT set this field.",
+      "minimum": 0,
+      "readOnly": true
+    },
+    "creationTimestamp": {
+      "type": "string",
+      "description": "RFC3339 timestamp of when the resource was created. Clients MUST NOT set this field.",
+      "format": "date-time",
+      "readOnly": true
+    },
+    "labels": {
+      "type": "object",
+      "description": "Key-value pairs for selection and organization",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 63
+      },
+      "propertyNames": {
+        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+        "maxLength": 253
+      }
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Key-value pairs for tooling and extensions",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "propertyNames": {
+        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+        "maxLength": 253
+      }
+    },
+    "ownerReferences": {
+      "type": "array",
+      "description": "References to owning resources for cascading deletion",
+      "items": {
+        "$ref": "#/$defs/ownerReference"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ownerReference": {
+      "type": "object",
+      "description": "Reference to an owning resource",
+      "required": ["apiVersion", "kind", "name", "uid"],
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "description": "API version of the owner"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind of the owner"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the owner"
+        },
+        "uid": {
+          "type": "string",
+          "description": "UID of the owner",
+          "format": "uuid"
+        },
+        "controller": {
+          "type": "boolean",
+          "description": "If true, this is the managing controller",
+          "default": false
+        },
+        "blockOwnerDeletion": {
+          "type": "boolean",
+          "description": "If true, block owner deletion until this resource is deleted",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

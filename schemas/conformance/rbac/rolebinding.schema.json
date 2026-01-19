@@ -1,0 +1,84 @@
+{
+  "$id": "https://planspec.io/schemas/conformance/rbac/rolebinding.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "RoleBinding",
+  "description": "Binds a Role or ClusterRole to subjects within a namespace (RBAC conformance profile)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "subjects", "roleRef"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "RoleBinding"
+    },
+    "metadata": {
+      "$ref": "../../common/metadata.schema.json"
+    },
+    "subjects": {
+      "type": "array",
+      "description": "Subjects to bind the role to",
+      "items": {
+        "$ref": "#/$defs/subject"
+      },
+      "minItems": 1
+    },
+    "roleRef": {
+      "$ref": "#/$defs/roleRef",
+      "description": "Reference to the Role or ClusterRole"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "subject": {
+      "type": "object",
+      "description": "A subject (user, group, or service account)",
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "description": "Kind of subject",
+          "enum": ["User", "Group", "ServiceAccount"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the subject",
+          "minLength": 1
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace (only for ServiceAccount)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "roleRef": {
+      "type": "object",
+      "description": "Reference to a Role or ClusterRole",
+      "required": ["apiGroup", "kind", "name"],
+      "properties": {
+        "apiGroup": {
+          "type": "string",
+          "description": "API group",
+          "const": "planspec.io"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind of role",
+          "enum": ["Role", "ClusterRole"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the role",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

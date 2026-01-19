@@ -1,0 +1,157 @@
+{
+  "$id": "https://planspec.io/schemas/conformance/rbac/clusterrole.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ClusterRole",
+  "description": "Defines cluster-wide permissions (RBAC conformance profile)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "ClusterRole"
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Cluster-scoped metadata (no namespace)",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "uid": {
+          "type": "string",
+          "description": "System-generated unique identifier",
+          "format": "uuid",
+          "readOnly": true
+        },
+        "resourceVersion": {
+          "type": "string",
+          "description": "Optimistic concurrency token",
+          "readOnly": true
+        },
+        "creationTimestamp": {
+          "type": "string",
+          "description": "RFC3339 timestamp of creation",
+          "format": "date-time",
+          "readOnly": true
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "rules": {
+      "type": "array",
+      "description": "List of policy rules",
+      "items": {
+        "$ref": "#/$defs/policyRule"
+      }
+    },
+    "aggregationRule": {
+      "$ref": "#/$defs/aggregationRule",
+      "description": "Describes how to build rules from other ClusterRoles"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "policyRule": {
+      "type": "object",
+      "description": "A policy rule granting permissions",
+      "required": ["resources", "verbs"],
+      "properties": {
+        "resources": {
+          "type": "array",
+          "description": "Resources this rule applies to",
+          "items": {
+            "type": "string",
+            "enum": ["goals", "plans", "capabilities", "bindings", "executions", "*"]
+          },
+          "minItems": 1
+        },
+        "verbs": {
+          "type": "array",
+          "description": "Allowed actions",
+          "items": {
+            "type": "string",
+            "enum": ["get", "list", "watch", "create", "update", "delete", "*"]
+          },
+          "minItems": 1
+        },
+        "resourceNames": {
+          "type": "array",
+          "description": "Specific resource names (if empty, applies to all)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "aggregationRule": {
+      "type": "object",
+      "description": "Describes how to aggregate rules from other ClusterRoles",
+      "properties": {
+        "clusterRoleSelectors": {
+          "type": "array",
+          "description": "Selectors for ClusterRoles to aggregate",
+          "items": {
+            "$ref": "#/$defs/labelSelector"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "labelSelector": {
+      "type": "object",
+      "description": "A label selector",
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "matchExpressions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "operator"],
+            "properties": {
+              "key": { "type": "string" },
+              "operator": {
+                "type": "string",
+                "enum": ["In", "NotIn", "Exists", "DoesNotExist"]
+              },
+              "values": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
