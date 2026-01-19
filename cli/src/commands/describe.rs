@@ -189,6 +189,17 @@ fn describe_plan(spec: &Value, status: &Value) {
         println!("  {}: {}", "Version".bold(), version);
     }
 
+    // Supersedes chain
+    if let Some(supersedes) = spec.get("supersedes").and_then(|s| s.as_array()) {
+        if !supersedes.is_empty() {
+            let names: Vec<&str> = supersedes
+                .iter()
+                .filter_map(|s| s.get("name").and_then(|n| n.as_str()))
+                .collect();
+            println!("  {}: {}", "Supersedes".bold(), names.join(", "));
+        }
+    }
+
     // Graph summary
     if let Some(graph) = spec.get("graph") {
         if let Some(nodes) = graph.get("nodes").and_then(|n| n.as_array()) {

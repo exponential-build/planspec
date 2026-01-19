@@ -57,6 +57,10 @@ enum Commands {
         /// List resources from all namespaces
         #[arg(long)]
         all_namespaces: bool,
+
+        /// Filter plans by series
+        #[arg(long)]
+        series: Option<String>,
     },
 
     /// Show detailed information about a resource
@@ -121,7 +125,8 @@ async fn main() -> Result<()> {
             name,
             selector,
             all_namespaces,
-        } => commands::get::run(&config, &resource, name, selector, all_namespaces, &cli.output).await,
+            series,
+        } => commands::get::run(&config, &resource, name, selector, all_namespaces, series, &cli.output).await,
         Commands::Describe { resource, name } => {
             commands::describe::run(&config, &resource, &name, &cli.output).await
         }

@@ -12,18 +12,66 @@ pub async fn run(
     name: Option<String>,
     selector: Option<String>,
     all_namespaces: bool,
+    series: Option<String>,
     output_format: &str,
 ) -> Result<()> {
     let client = Client::new(config)?;
     let resource_type = normalize_resource_type(resource);
 
-    let result = if let Some(name) = name {
+    let mut result = if let Some(name) = name {
         client.get(&resource_type, &name, None).await?
     } else {
         client
             .list(&resource_type, None, selector.as_deref(), all_namespaces)
             .await?
     };
+
+    // Filter plans by series if specified (client-side filtering)
+    if let Some(ref series_filter) = series {
+        if resource_type == "plans" {
+            if let Some(items) = result.get_mut("items").and_then(|i| i.as_array_mut()) {
+                items.retain(|item| {
+                    item.get("spec")
+                        .and_then(|s| s.get("series"))
+                        .and_then(|s| s.as_str())
+                        .map(|s| s == series_filter)
+                        .unwrap_or(false)
+                });
+            }
+        }
+    }
+
+    // Sort plans by (series asc, version desc)
+    if resource_type == "plans" {
+        if let Some(items) = result.get_mut("items").and_then(|i| i.as_array_mut()) {
+            items.sort_by(|a, b| {
+                let a_spec = a.get("spec").unwrap_or(&Value::Null);
+                let b_spec = b.get("spec").unwrap_or(&Value::Null);
+
+                let a_series = a_spec.get("series").and_then(|s| s.as_str()).unwrap_or("");
+                let b_series = b_spec.get("series").and_then(|s| s.as_str()).unwrap_or("");
+
+                // Primary sort: series ascending
+                match a_series.cmp(b_series) {
+                    std::cmp::Ordering::Equal => {
+                        // Secondary sort: version descending (numeric if possible)
+                        let a_version = a_spec.get("version").and_then(|v| v.as_str()).unwrap_or("0");
+                        let b_version = b_spec.get("version").and_then(|v| v.as_str()).unwrap_or("0");
+
+                        // Try numeric comparison first
+                        let a_num: Result<i64, _> = a_version.parse();
+                        let b_num: Result<i64, _> = b_version.parse();
+
+                        match (a_num, b_num) {
+                            (Ok(a), Ok(b)) => b.cmp(&a), // Descending
+                            _ => b_version.cmp(a_version), // Fall back to string comparison, descending
+                        }
+                    }
+                    other => other,
+                }
+            });
+        }
+    }
 
     match output_format {
         "json" => println!("{}", serde_json::to_string_pretty(&result)?),

@@ -7,6 +7,24 @@ use serde_json::{json, Value};
 
 use crate::{validate::Validator, AppState};
 
+/// Populate Plan status with phase and nodeCount
+fn populate_plan_status(body: &mut Value) {
+    let node_count = body
+        .get("spec")
+        .and_then(|s| s.get("graph"))
+        .and_then(|g| g.get("nodes"))
+        .and_then(|n| n.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+
+    // Initialize or update status
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+    body["status"]["phase"] = json!("Ready");
+    body["status"]["nodeCount"] = json!(node_count);
+}
+
 /// Apply multiple resources atomically within a namespace
 pub async fn apply(
     State(state): State<AppState>,
@@ -103,6 +121,11 @@ pub async fn apply(
         // Ensure namespace is set
         if let Some(metadata) = resource.get_mut("metadata").and_then(|m| m.as_object_mut()) {
             metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
+        }
+
+        // Populate status for Plans
+        if kind == "Plan" {
+            populate_plan_status(&mut resource);
         }
 
         // Check if exists

@@ -13,6 +13,24 @@ use tokio_stream::StreamExt;
 
 use crate::{validate::Validator, AppState};
 
+/// Populate Plan status with phase and nodeCount
+fn populate_plan_status(body: &mut Value) {
+    let node_count = body
+        .get("spec")
+        .and_then(|s| s.get("graph"))
+        .and_then(|g| g.get("nodes"))
+        .and_then(|n| n.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+
+    // Initialize or update status
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+    body["status"]["phase"] = json!("Ready");
+    body["status"]["nodeCount"] = json!(node_count);
+}
+
 /// Map resource type from URL to Kind
 fn resource_to_kind(resource: &str) -> &str {
     match resource {
@@ -192,6 +210,11 @@ pub async fn create(
         metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
     }
 
+    // Populate status for Plans
+    if kind == "Plan" {
+        populate_plan_status(&mut body);
+    }
+
     let name = body
         .get("metadata")
         .and_then(|m| m.get("name"))
@@ -317,6 +340,11 @@ pub async fn replace(
     if let Some(metadata) = body.get_mut("metadata").and_then(|m| m.as_object_mut()) {
         metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
         metadata.insert("name".to_string(), Value::String(name.clone()));
+    }
+
+    // Populate status for Plans
+    if kind == "Plan" {
+        populate_plan_status(&mut body);
     }
 
     let (stored, event) = state
