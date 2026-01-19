@@ -1,5 +1,9 @@
 # Rust build artifacts
 cli/target/
+server/target/
+
+# SQLite databases
+*.db
 
 # macOS
 .DS_Store
