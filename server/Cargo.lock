@@ -1568,6 +1568,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
+name = "planspec-core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "jsonschema",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "uuid",
+]
+
+[[package]]
 name = "planspec-server"
 version = "0.1.0"
 dependencies = [
@@ -1575,7 +1587,7 @@ dependencies = [
  "axum",
  "chrono",
  "futures",
- "jsonschema",
+ "planspec-core",
  "reqwest",
  "serde",
  "serde_json",

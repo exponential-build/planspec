@@ -11,7 +11,9 @@ use std::convert::Infallible;
 use tokio_stream::wrappers::BroadcastStream;
 use tokio_stream::StreamExt;
 
-use crate::{validate::Validator, AppState};
+use planspec_core::Validator;
+
+use crate::AppState;
 
 /// Populate Plan status with phase and nodeCount
 fn populate_plan_status(body: &mut Value) {
@@ -176,20 +178,8 @@ pub async fn create(
         )
     })?;
 
-    let errors = validator.validate(&body).map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "kind": "Status",
-                "status": "Failure",
-                "message": e.to_string(),
-                "reason": "Invalid",
-                "code": 400
-            })),
-        )
-    })?;
-
-    if !errors.is_empty() {
+    if let Err(errors) = validator.validate_json(&body) {
+        let error_messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         return Err((
             StatusCode::BAD_REQUEST,
             Json(json!({
@@ -198,7 +188,7 @@ pub async fn create(
                 "message": "Validation failed",
                 "reason": "Invalid",
                 "details": {
-                    "causes": errors
+                    "causes": error_messages
                 },
                 "code": 400
             })),
@@ -300,20 +290,8 @@ pub async fn replace(
         )
     })?;
 
-    let errors = validator.validate(&body).map_err(|e| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({
-                "kind": "Status",
-                "status": "Failure",
-                "message": e.to_string(),
-                "reason": "Invalid",
-                "code": 400
-            })),
-        )
-    })?;
-
-    if !errors.is_empty() {
+    if let Err(errors) = validator.validate_json(&body) {
+        let error_messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
         return Err((
             StatusCode::BAD_REQUEST,
             Json(json!({
@@ -322,7 +300,7 @@ pub async fn replace(
                 "message": "Validation failed",
                 "reason": "Invalid",
                 "details": {
-                    "causes": errors
+                    "causes": error_messages
                 },
                 "code": 400
             })),

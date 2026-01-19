@@ -1,11 +1,11 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
+use planspec_core::Validator;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
 
 use crate::client::{Client, Config};
-use crate::schema;
 
 /// Apply resources from a file
 pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str) -> Result<()> {
@@ -22,9 +22,10 @@ pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str
     }
 
     // Validate locally first
-    let validator = schema::Validator::new()?;
+    let validator = Validator::new()
+        .map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
     for resource in &resources {
-        if let Err(errors) = validator.validate(resource) {
+        if let Err(errors) = validator.validate_json(resource) {
             let kind = resource.get("kind").and_then(|k| k.as_str()).unwrap_or("Unknown");
             let name = resource
                 .get("metadata")

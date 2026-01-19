@@ -4,7 +4,6 @@ use clap::{Parser, Subcommand};
 mod client;
 mod commands;
 mod output;
-mod schema;
 
 #[derive(Parser)]
 #[command(name = "planspec")]

@@ -1,7 +1,6 @@
 use axum::{http::StatusCode, Json};
+use planspec_core::Validator;
 use serde_json::{json, Value};
-
-use crate::validate::Validator;
 
 /// Validate resources without persisting
 pub async fn validate(
@@ -32,8 +31,8 @@ pub async fn validate(
             .and_then(|n| n.as_str())
             .unwrap_or("<unnamed>");
 
-        match validator.validate(resource) {
-            Ok(errors) if errors.is_empty() => {
+        match validator.validate_json(resource) {
+            Ok(()) => {
                 results.push(json!({
                     "index": i,
                     "kind": kind,
@@ -41,22 +40,14 @@ pub async fn validate(
                     "valid": true
                 }));
             }
-            Ok(errors) => {
+            Err(errors) => {
+                let error_messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
                 results.push(json!({
                     "index": i,
                     "kind": kind,
                     "name": name,
                     "valid": false,
-                    "errors": errors
-                }));
-            }
-            Err(e) => {
-                results.push(json!({
-                    "index": i,
-                    "kind": kind,
-                    "name": name,
-                    "valid": false,
-                    "errors": [e.to_string()]
+                    "errors": error_messages
                 }));
             }
         }

@@ -6,7 +6,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod routes;
 mod storage;
-mod validate;
 mod watch;
 
 use storage::Store;

@@ -1,10 +1,9 @@
 use anyhow::{Context, Result};
 use colored::Colorize;
+use planspec_core::Validator;
 use serde_json::Value;
 use std::fs;
 use std::path::Path;
-
-use crate::schema;
 
 /// Validate resources from a file against JSON schemas (offline)
 pub fn run(file: &str, output_format: &str) -> Result<()> {
@@ -20,7 +19,8 @@ pub fn run(file: &str, output_format: &str) -> Result<()> {
         return Ok(());
     }
 
-    let validator = schema::Validator::new()?;
+    let validator = Validator::new()
+        .map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
     let mut all_valid = true;
     let mut results = Vec::new();
 
@@ -35,7 +35,7 @@ pub fn run(file: &str, output_format: &str) -> Result<()> {
             .and_then(|n| n.as_str())
             .unwrap_or("<unnamed>");
 
-        match validator.validate(resource) {
+        match validator.validate_json(resource) {
             Ok(()) => {
                 results.push(ValidationResult {
                     index: i + 1,
@@ -52,7 +52,7 @@ pub fn run(file: &str, output_format: &str) -> Result<()> {
                     kind: kind.to_string(),
                     name: name.to_string(),
                     valid: false,
-                    errors,
+                    errors: errors.iter().map(|e| e.to_string()).collect(),
                 });
             }
         }

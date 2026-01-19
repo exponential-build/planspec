@@ -1,0 +1,684 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-core-crate
+  namespace: planspec
+spec:
+  description: "Create a shared planspec-core crate with types consumable by CLI, server, and external implementations"
+  constraints:
+    language: rust
+    design: library-first
+  acceptanceCriteria:
+    - description: "planspec-core crate exists with all resource types"
+    - description: "Types derive Serialize, Deserialize, Clone, Debug, PartialEq"
+    - description: "CLI and server both depend on planspec-core"
+    - description: "JSON schema validation lives in planspec-core"
+    - description: "Types are documented with rustdoc"
+    - description: "External crates can depend on planspec-core for type definitions"
+  context:
+    - name: motivation
+      format: markdown
+      content: |
+        Currently types are defined separately in CLI and server with embedded
+        JSON schemas duplicated in both. A shared core crate provides:
+        - Single source of truth for resource types
+        - Consistent serialization/deserialization
+        - Reusable validation logic
+        - Foundation for other Rust-based implementations
+        - Better developer experience for ecosystem builders
+  timeout: "3d"
+  priority: 90
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: planspec-core-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: planspec-core-crate
+    planspec.io/series: planspec-core
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: planspec-core-crate
+  series: planspec-core
+  version: "1"
+  description: "Implementation plan for planspec-core shared crate"
+  context:
+    - format: markdown
+      content: |
+        The crate should be designed library-first, meaning types should be
+        ergonomic for Rust consumers, not just internal use. Use builder
+        patterns where appropriate, implement standard traits, and provide
+        good documentation.
+  graph:
+    nodes:
+      - id: create-crate
+        kind: Task
+        description: "Create planspec-core crate with Cargo.toml and module structure"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Create `core/` directory with:
+              ```
+              core/
+              ├── Cargo.toml
+              └── src/
+                  ├── lib.rs
+                  ├── types/
+                  │   ├── mod.rs
+                  │   ├── meta.rs      # ObjectMeta, ObjectReference, OwnerReference
+                  │   ├── status.rs    # Condition, common status patterns
+                  │   ├── context.rs   # ContextItem
+                  │   ├── goal.rs
+                  │   ├── plan.rs      # Plan, Graph, Node, Edge
+                  │   ├── capability.rs
+                  │   ├── binding.rs
+                  │   └── execution.rs
+                  ├── validate/
+                  │   ├── mod.rs
+                  │   └── schemas.rs   # Embedded JSON schemas
+                  └── resource.rs      # Resource enum and traits
+              ```
+
+              Cargo.toml dependencies:
+              - serde, serde_json (serialization)
+              - chrono (timestamps)
+              - uuid (uid generation)
+              - jsonschema (validation)
+              - thiserror (error types)
+        outputs:
+          - core/Cargo.toml
+          - core/src/lib.rs
+
+      - id: impl-meta-types
+        kind: Task
+        description: "Implement ObjectMeta, ObjectReference, OwnerReference, Condition"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ```rust
+              use chrono::{DateTime, Utc};
+              use serde::{Deserialize, Serialize};
+              use std::collections::BTreeMap;
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+              #[serde(rename_all = "camelCase")]
+              pub struct ObjectMeta {
+                  pub name: String,
+                  pub namespace: String,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub uid: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub resource_version: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub generation: Option<i64>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub creation_timestamp: Option<DateTime<Utc>>,
+                  #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+                  pub labels: BTreeMap<String, String>,
+                  #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+                  pub annotations: BTreeMap<String, String>,
+                  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+                  pub owner_references: Vec<OwnerReference>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct ObjectReference {
+                  pub name: String,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub namespace: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub uid: Option<String>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct OwnerReference {
+                  pub api_version: String,
+                  pub kind: String,
+                  pub name: String,
+                  pub uid: String,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub controller: Option<bool>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub block_owner_deletion: Option<bool>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct Condition {
+                  #[serde(rename = "type")]
+                  pub condition_type: String,
+                  pub status: ConditionStatus,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub reason: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub message: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub last_transition_time: Option<DateTime<Utc>>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub observed_generation: Option<i64>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              pub enum ConditionStatus {
+                  True,
+                  False,
+                  Unknown,
+              }
+              ```
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/status.rs
+
+      - id: impl-context
+        kind: Task
+        description: "Implement ContextItem type"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ```rust
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct ContextItem {
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub name: Option<String>,
+                  pub format: ContextFormat,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub content: Option<serde_json::Value>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub uris: Option<Vec<String>>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "kebab-case")]
+              pub enum ContextFormat {
+                  Markdown,
+                  Text,
+                  Json,
+                  UriList,
+              }
+              ```
+        outputs:
+          - core/src/types/context.rs
+
+      - id: impl-resources
+        kind: Task
+        description: "Implement Goal, Plan, Capability, Binding, Execution types"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Each resource follows the pattern:
+              ```rust
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct Goal {
+                  pub api_version: String,
+                  pub kind: String,
+                  pub metadata: ObjectMeta,
+                  pub spec: GoalSpec,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub status: Option<GoalStatus>,
+              }
+
+              impl Default for Goal {
+                  fn default() -> Self {
+                      Self {
+                          api_version: "planspec.io/v1alpha1".to_string(),
+                          kind: "Goal".to_string(),
+                          metadata: ObjectMeta::default(),
+                          spec: GoalSpec::default(),
+                          status: None,
+                      }
+                  }
+              }
+              ```
+
+              Plan.spec.graph should use strongly typed Node and Edge:
+              ```rust
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct Graph {
+                  pub nodes: Vec<Node>,
+                  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+                  pub edges: Vec<Edge>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "camelCase")]
+              pub struct Node {
+                  pub id: String,
+                  pub kind: NodeKind,
+                  pub description: String,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub capability_ref: Option<ObjectReference>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub inputs: Option<serde_json::Value>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub outputs: Option<Vec<String>>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub timeout: Option<String>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub retries: Option<i32>,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  pub when: Option<String>,
+                  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+                  pub context: Vec<ContextItem>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              pub enum NodeKind {
+                  Task,
+                  Gate,
+                  Group,
+                  External,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              pub struct Edge {
+                  pub from: String,
+                  pub to: String,
+                  #[serde(skip_serializing_if = "Option::is_none")]
+                  #[serde(rename = "type")]
+                  pub edge_type: Option<EdgeType>,
+              }
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(rename_all = "lowercase")]
+              pub enum EdgeType {
+                  Hard,
+                  Soft,
+              }
+              ```
+        outputs:
+          - core/src/types/goal.rs
+          - core/src/types/plan.rs
+          - core/src/types/capability.rs
+          - core/src/types/binding.rs
+          - core/src/types/execution.rs
+
+      - id: impl-resource-enum
+        kind: Task
+        description: "Implement Resource enum for polymorphic handling"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ```rust
+              use serde::{Deserialize, Serialize};
+
+              #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+              #[serde(tag = "kind")]
+              pub enum Resource {
+                  Goal(Goal),
+                  Plan(Plan),
+                  Capability(Capability),
+                  Binding(Binding),
+                  Execution(Execution),
+              }
+
+              impl Resource {
+                  pub fn kind(&self) -> &str {
+                      match self {
+                          Resource::Goal(_) => "Goal",
+                          Resource::Plan(_) => "Plan",
+                          Resource::Capability(_) => "Capability",
+                          Resource::Binding(_) => "Binding",
+                          Resource::Execution(_) => "Execution",
+                      }
+                  }
+
+                  pub fn metadata(&self) -> &ObjectMeta {
+                      match self {
+                          Resource::Goal(g) => &g.metadata,
+                          Resource::Plan(p) => &p.metadata,
+                          Resource::Capability(c) => &c.metadata,
+                          Resource::Binding(b) => &b.metadata,
+                          Resource::Execution(e) => &e.metadata,
+                      }
+                  }
+
+                  pub fn metadata_mut(&mut self) -> &mut ObjectMeta {
+                      match self {
+                          Resource::Goal(g) => &mut g.metadata,
+                          Resource::Plan(p) => &mut p.metadata,
+                          Resource::Capability(c) => &mut c.metadata,
+                          Resource::Binding(b) => &mut b.metadata,
+                          Resource::Execution(e) => &mut e.metadata,
+                      }
+                  }
+              }
+              ```
+
+              Also implement TryFrom<serde_json::Value> for Resource.
+        outputs:
+          - core/src/resource.rs
+
+      - id: impl-api-types
+        kind: Task
+        description: "Implement API types for client/server interoperability"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add types needed for API responses and watch streams in `core/src/types/api.rs`:
+
+              ```rust
+              // Watch events for streaming
+              pub enum WatchEventType { Added, Modified, Deleted }
+              pub struct WatchEvent {
+                  pub event_type: WatchEventType,
+                  pub object: Value,
+                  pub rev: String,
+              }
+
+              // K8s-style Status response for errors
+              pub struct Status {
+                  pub api_version: String,
+                  pub kind: String,  // "Status"
+                  pub status: StatusResult,  // Success | Failure
+                  pub message: Option<String>,
+                  pub reason: Option<StatusReason>,  // NotFound, Invalid, Conflict, etc.
+                  pub details: Option<StatusDetails>,
+                  pub code: u16,
+              }
+
+              // List wrapper for collection responses
+              pub struct ResourceList<T> {
+                  pub api_version: String,
+                  pub kind: String,  // "GoalList", "PlanList", etc.
+                  pub items: Vec<T>,
+                  pub metadata: Option<ListMeta>,
+              }
+
+              // Bulk apply result
+              pub struct ApplyResult {
+                  pub applied: Vec<AppliedResource>,
+                  pub errors: Vec<ApplyError>,
+              }
+              ```
+
+              Include builder methods like `Status::not_found()`, `Status::invalid()`,
+              `WatchEvent::added()`, `ResourceList::new()`.
+        outputs:
+          - core/src/types/api.rs
+
+      - id: impl-validation
+        kind: Task
+        description: "Move JSON schema validation to planspec-core"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Move the embedded schemas and Validator from both CLI and server
+              into planspec-core. Provide a clean API:
+
+              ```rust
+              pub struct Validator { /* ... */ }
+
+              impl Validator {
+                  pub fn new() -> Result<Self, ValidationError>;
+                  pub fn validate(&self, resource: &Resource) -> Result<(), Vec<ValidationError>>;
+                  pub fn validate_json(&self, value: &serde_json::Value) -> Result<(), Vec<ValidationError>>;
+              }
+
+              #[derive(Debug, thiserror::Error)]
+              pub enum ValidationError {
+                  #[error("Schema error: {0}")]
+                  SchemaError(String),
+                  #[error("Validation failed at {path}: {message}")]
+                  ValidationFailed { path: String, message: String },
+                  #[error("Unknown resource kind: {0}")]
+                  UnknownKind(String),
+              }
+              ```
+
+              Also add DAG cycle detection for Plan graphs:
+              ```rust
+              impl Plan {
+                  pub fn validate_graph(&self) -> Result<(), GraphError>;
+              }
+              ```
+        outputs:
+          - core/src/validate/mod.rs
+          - core/src/validate/schemas.rs
+
+      - id: impl-helpers
+        kind: Task
+        description: "Add helper methods and builder patterns"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add ergonomic helpers:
+
+              ```rust
+              impl ObjectMeta {
+                  pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self;
+                  pub fn with_label(mut self, key: impl Into<String>, value: impl Into<String>) -> Self;
+                  pub fn with_annotation(mut self, key: impl Into<String>, value: impl Into<String>) -> Self;
+              }
+
+              impl Goal {
+                  pub fn new(name: impl Into<String>, namespace: impl Into<String>) -> Self;
+                  pub fn with_description(mut self, desc: impl Into<String>) -> Self;
+              }
+
+              impl Plan {
+                  pub fn node_count(&self) -> usize;
+                  pub fn edge_count(&self) -> usize;
+                  pub fn topological_order(&self) -> Result<Vec<&Node>, GraphError>;
+              }
+
+              impl Graph {
+                  pub fn is_acyclic(&self) -> bool;
+                  pub fn roots(&self) -> Vec<&Node>;  // nodes with no incoming edges
+                  pub fn leaves(&self) -> Vec<&Node>; // nodes with no outgoing edges
+              }
+              ```
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/plan.rs
+
+      - id: update-cli
+        kind: Task
+        description: "Update CLI to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              1. Add dependency to cli/Cargo.toml:
+                 ```toml
+                 planspec-core = { path = "../core" }
+                 ```
+
+              2. Remove cli/src/schema/validator.rs (use core's)
+
+              3. Update imports throughout CLI to use planspec_core types
+
+              4. Keep CLI-specific code (client, commands, output formatting)
+        outputs:
+          - cli/Cargo.toml
+          - cli/src/commands/validate.rs
+
+      - id: update-server
+        kind: Task
+        description: "Update server to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              1. Add dependency to server/Cargo.toml:
+                 ```toml
+                 planspec-core = { path = "../core" }
+                 ```
+
+              2. Remove server/src/validate.rs (use core's)
+
+              3. Update imports to use planspec_core types
+
+              4. Server can still use serde_json::Value for storage flexibility,
+                 but validate using core's typed validation
+        outputs:
+          - server/Cargo.toml
+          - server/src/routes/resources.rs
+          - server/src/routes/apply.rs
+
+      - id: add-tests
+        kind: Task
+        description: "Add unit tests for core types and validation"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add tests in core/src/lib.rs or core/tests/:
+              - Serialization round-trip tests
+              - Validation tests (valid and invalid resources)
+              - Graph cycle detection tests
+              - Builder pattern tests
+
+              ```rust
+              #[cfg(test)]
+              mod tests {
+                  use super::*;
+
+                  #[test]
+                  fn test_goal_serialization() {
+                      let goal = Goal::new("my-goal", "default")
+                          .with_description("Test goal");
+                      let json = serde_json::to_string(&goal).unwrap();
+                      let parsed: Goal = serde_json::from_str(&json).unwrap();
+                      assert_eq!(goal, parsed);
+                  }
+
+                  #[test]
+                  fn test_cyclic_graph_detection() {
+                      // ... test that cyclic graphs are rejected
+                  }
+              }
+              ```
+        outputs:
+          - core/src/lib.rs
+
+      - id: add-docs
+        kind: Task
+        description: "Add rustdoc documentation"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add comprehensive rustdoc to core/src/lib.rs:
+              ```rust
+              //! # PlanSpec Core
+              //!
+              //! Core types and validation for the PlanSpec declarative work orchestration system.
+              //!
+              //! ## Overview
+              //!
+              //! This crate provides the foundational types for PlanSpec resources:
+              //! - [`Goal`] - High-level objectives with acceptance criteria
+              //! - [`Plan`] - DAGs of work with embedded nodes and edges
+              //! - [`Capability`] - Reusable abilities that agents can provide
+              //! - [`Binding`] - Resolution of capabilities to provider targets
+              //! - [`Execution`] - Intent to run a Plan with specific bindings
+              //!
+              //! ## Example
+              //!
+              //! ```rust
+              //! use planspec_core::{Goal, Plan, Validator};
+              //!
+              //! let goal = Goal::new("my-goal", "default")
+              //!     .with_description("Implement feature X");
+              //!
+              //! let validator = Validator::new()?;
+              //! validator.validate(&goal.into())?;
+              //! ```
+              ```
+        outputs:
+          - core/src/lib.rs
+
+      - id: build-test
+        kind: Task
+        description: "Build all crates and run tests"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              ```bash
+              cd core && cargo build && cargo test
+              cd ../cli && cargo build
+              cd ../server && cargo build
+              cargo test --all
+              ```
+
+      - id: review
+        kind: Gate
+        description: "Human review of planspec-core implementation"
+        when: "manualApproval"
+
+    edges:
+      - from: create-crate
+        to: impl-meta-types
+      - from: impl-meta-types
+        to: impl-context
+      - from: impl-context
+        to: impl-resources
+      - from: impl-resources
+        to: impl-resource-enum
+      - from: impl-resource-enum
+        to: impl-api-types
+      - from: impl-api-types
+        to: impl-validation
+      - from: impl-validation
+        to: impl-helpers
+      - from: impl-helpers
+        to: update-cli
+      - from: impl-helpers
+        to: update-server
+      - from: update-cli
+        to: add-tests
+      - from: update-server
+        to: add-tests
+      - from: add-tests
+        to: add-docs
+      - from: add-docs
+        to: build-test
+      - from: build-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: planspec-core-bindings
+  namespace: planspec
+spec:
+  rules:
+    - selector:
+        capabilityRef:
+          name: code-generation
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: code-execution
+      target:
+        provider: "agent://claude-code"

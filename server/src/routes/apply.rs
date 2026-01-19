@@ -3,9 +3,10 @@ use axum::{
     http::StatusCode,
     Json,
 };
+use planspec_core::Validator;
 use serde_json::{json, Value};
 
-use crate::{validate::Validator, AppState};
+use crate::AppState;
 
 /// Populate Plan status with phase and nodeCount
 fn populate_plan_status(body: &mut Value) {
@@ -63,24 +64,14 @@ pub async fn apply(
             .and_then(|n| n.as_str())
             .unwrap_or("<unnamed>");
 
-        match validator.validate(resource) {
-            Ok(errors) if !errors.is_empty() => {
-                validation_errors.push(json!({
-                    "index": i,
-                    "resource": format!("{}/{}", kind, name),
-                    "reason": "Invalid",
-                    "message": errors.join("; ")
-                }));
-            }
-            Err(e) => {
-                validation_errors.push(json!({
-                    "index": i,
-                    "resource": format!("{}/{}", kind, name),
-                    "reason": "ValidationError",
-                    "message": e.to_string()
-                }));
-            }
-            _ => {}
+        if let Err(errors) = validator.validate_json(resource) {
+            let error_messages: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
+            validation_errors.push(json!({
+                "index": i,
+                "resource": format!("{}/{}", kind, name),
+                "reason": "Invalid",
+                "message": error_messages.join("; ")
+            }));
         }
     }
 

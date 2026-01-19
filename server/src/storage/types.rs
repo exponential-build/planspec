@@ -26,39 +26,3 @@ pub struct StoredObject {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
-/// Watch event types
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum WatchEventType {
-    Added,
-    Modified,
-    Deleted,
-}
-
-/// A watch event
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WatchEvent {
-    #[serde(rename = "type")]
-    pub event_type: WatchEventType,
-    pub object: Value,
-    pub rev: String,
-}
-
-/// Resource key for lookups
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
-pub struct ResourceKey {
-    pub namespace: String,
-    pub kind: String,
-    pub name: String,
-}
-
-impl ResourceKey {
-    pub fn new(namespace: &str, kind: &str, name: &str) -> Self {
-        Self {
-            namespace: namespace.to_string(),
-            kind: kind.to_string(),
-            name: name.to_string(),
-        }
-    }
-}

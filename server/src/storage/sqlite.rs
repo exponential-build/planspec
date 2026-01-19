@@ -4,7 +4,9 @@ use serde_json::Value;
 use sqlx::{sqlite::SqlitePoolOptions, Pool, Sqlite};
 use uuid::Uuid;
 
-use super::types::{StoredObject, WatchEvent, WatchEventType};
+use planspec_core::{WatchEvent, WatchEventType};
+
+use super::types::StoredObject;
 
 /// SQLite-backed storage for PlanSpec resources
 #[derive(Clone)]
