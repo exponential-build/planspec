@@ -64,6 +64,13 @@
         "graph": {
           "$ref": "../common/graph.schema.json",
           "description": "The DAG structure"
+        },
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments (notes, code pointers, structured data)",
+          "items": {
+            "$ref": "../common/context.schema.json"
+          }
         }
       },
       "additionalProperties": false

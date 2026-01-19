@@ -80,6 +80,13 @@
           "type": "string",
           "description": "Condition expression for conditional execution",
           "maxLength": 1024
+        },
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments for this node (notes, code pointers, structured data)",
+          "items": {
+            "$ref": "context.schema.json"
+          }
         }
       },
       "additionalProperties": false

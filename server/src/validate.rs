@@ -199,7 +199,20 @@ const GOAL_SCHEMA: &str = r#"
         },
         "planSelector": { "type": "object" },
         "timeout": { "type": "string" },
-        "priority": { "type": "integer", "minimum": 0 }
+        "priority": { "type": "integer", "minimum": 0 },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
       }
     },
     "status": { "type": "object" }
@@ -233,6 +246,19 @@ const PLAN_SCHEMA: &str = r#"
         "series": { "type": "string" },
         "version": { "type": "string" },
         "supersedes": { "type": "array", "items": { "type": "object" } },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
         "graph": {
           "type": "object",
           "required": ["nodes"],
@@ -252,7 +278,20 @@ const PLAN_SCHEMA: &str = r#"
                   "outputs": { "type": "array" },
                   "timeout": { "type": "string" },
                   "retries": { "type": "integer" },
-                  "when": { "type": "string" }
+                  "when": { "type": "string" },
+                  "context": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["format"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+                        "content": {},
+                        "uris": { "type": "array", "items": { "type": "string" } }
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -386,7 +425,20 @@ const EXECUTION_SCHEMA: &str = r#"
         },
         "bindingRef": { "type": "object" },
         "runtimeRef": { "type": "object" },
-        "parameters": { "type": "object" }
+        "parameters": { "type": "object" },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        }
       }
     },
     "status": { "type": "object" }

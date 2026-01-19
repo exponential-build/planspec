@@ -145,6 +145,11 @@ fn describe_goal(spec: &Value, status: &Value) {
         }
     }
 
+    if let Some(context) = spec.get("context") {
+        println!();
+        describe_context(context, "  ");
+    }
+
     println!();
     println!("{}:", "Status".bold());
 
@@ -206,6 +211,11 @@ fn describe_plan(spec: &Value, status: &Value) {
                 println!("    {} -> {}", from, to);
             }
         }
+    }
+
+    if let Some(context) = spec.get("context") {
+        println!();
+        describe_context(context, "  ");
     }
 
     println!();
@@ -348,6 +358,11 @@ fn describe_execution(spec: &Value, status: &Value) {
         }
     }
 
+    if let Some(context) = spec.get("context") {
+        println!();
+        describe_context(context, "  ");
+    }
+
     println!();
     println!("{}:", "Status".bold());
 
@@ -418,5 +433,66 @@ fn colorize_phase(phase: &str) -> String {
         "Failed" | "Invalid" | "Unresolved" => phase.red().to_string(),
         "Cancelled" | "Skipped" => phase.dimmed().to_string(),
         _ => phase.to_string(),
+    }
+}
+
+fn describe_context(context: &Value, indent: &str) {
+    if let Some(items) = context.as_array() {
+        if items.is_empty() {
+            return;
+        }
+        println!("{}{}:", indent, "Context".bold());
+        for item in items {
+            let name = item.get("name").and_then(|n| n.as_str());
+            let format = item.get("format").and_then(|f| f.as_str()).unwrap_or("unknown");
+
+            let header = match name {
+                Some(n) => format!("[{}] {}", format.cyan(), n),
+                None => format!("[{}]", format.cyan()),
+            };
+            println!("{}  {}", indent, header);
+
+            match format {
+                "uri-list" => {
+                    if let Some(uris) = item.get("uris").and_then(|u| u.as_array()) {
+                        for uri in uris {
+                            if let Some(u) = uri.as_str() {
+                                println!("{}    - {}", indent, u);
+                            }
+                        }
+                    }
+                }
+                "markdown" | "text" => {
+                    if let Some(content) = item.get("content").and_then(|c| c.as_str()) {
+                        // Truncate long content
+                        let lines: Vec<&str> = content.lines().collect();
+                        let max_lines = 10;
+                        for (i, line) in lines.iter().take(max_lines).enumerate() {
+                            if i == 0 && line.is_empty() {
+                                continue;
+                            }
+                            println!("{}    {}", indent, line);
+                        }
+                        if lines.len() > max_lines {
+                            println!("{}    ... ({} more lines)", indent, lines.len() - max_lines);
+                        }
+                    }
+                }
+                "json" => {
+                    if let Some(content) = item.get("content") {
+                        let json_str = serde_json::to_string_pretty(content).unwrap_or_default();
+                        let lines: Vec<&str> = json_str.lines().collect();
+                        let max_lines = 8;
+                        for line in lines.iter().take(max_lines) {
+                            println!("{}    {}", indent, line);
+                        }
+                        if lines.len() > max_lines {
+                            println!("{}    ... ({} more lines)", indent, lines.len() - max_lines);
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 }

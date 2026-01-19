@@ -15,9 +15,10 @@ This document formally defines the primitives, semantics, and behaviors of PlanS
 4. [Capability](#capability)
 5. [Binding](#binding)
 6. [Execution](#execution)
-7. [Graph Views](#graph-views)
-8. [Deletion and Cleanup Semantics](#deletion-and-cleanup-semantics)
-9. [Conventions](#conventions)
+7. [Context Attachments](#context-attachments)
+8. [Graph Views](#graph-views)
+9. [Deletion and Cleanup Semantics](#deletion-and-cleanup-semantics)
+10. [Conventions](#conventions)
 
 ---
 
@@ -634,6 +635,136 @@ status:
 - `Pending` is the brief window between API acceptance and controller pickup
 - No separate `execute` verb needed in v0
 - **Future**: subresource `POST /executions/{name}/start` for explicit trigger if needed
+
+---
+
+## Context Attachments
+
+PlanSpec resources MAY include contextual attachments for embedding notes, code pointers, and structured data. Context allows agents to "leave breadcrumbs" (design notes, snippets, links, decisions) without requiring a knowledge-graph implementation.
+
+### Design Philosophy
+
+**Context is for execution-local notes that travel with the plan.**
+
+- Embed small markdown snippets that clarify intent
+- Include code pointers (URIs) to relevant files
+- Attach structured data (JSON) for machine consumption
+- Keep heavy content (full design docs, long investigations) in external systems
+
+PlanSpec allows attachments as opaque data; implementations decide how to index, rank, or use them.
+
+### ContextItem Schema
+
+```yaml
+context:
+  - name: <string>           # Optional identifier
+    format: <ContextFormat>  # Required
+    content: <string|object> # For markdown/text/json
+    uris: <[]string>         # For uri-list
+```
+
+### ContextFormat
+
+| Format | Content Type | Description |
+|--------|--------------|-------------|
+| `markdown` | string | Rich text with formatting |
+| `text` | string | Plain text |
+| `json` | object/array | Structured data |
+| `uri-list` | (uses `uris`) | List of URI pointers |
+
+### Field Constraints
+
+- `format` is REQUIRED
+- Either `content` or `uris` MUST be present (not both)
+- For `markdown` and `text`: `content` MUST be a string
+- For `json`: `content` MAY be any JSON value
+- For `uri-list`: `uris` MUST be an array of URI strings; `content` MUST NOT be present
+- `name` is OPTIONAL; useful for referencing specific context items
+
+### Where Context Applies
+
+| Resource | Field | Description |
+|----------|-------|-------------|
+| Goal | `spec.context[]` | Goal-level notes, constraints rationale |
+| Plan | `spec.context[]` | Plan-level design notes, references |
+| Plan Node | `spec.graph.nodes[].context[]` | Per-task implementation hints |
+| Execution | `spec.context[]` | Runtime notes, execution-specific context |
+
+### Examples
+
+**Goal with design rationale:**
+
+```yaml
+spec:
+  description: "Add logout functionality"
+  context:
+    - name: design-notes
+      format: markdown
+      content: |
+        ### Constraints
+        - Use existing session store (don't create new tables)
+        - Clear cookies AND call server-side /api/logout
+```
+
+**Plan node with code pointers:**
+
+```yaml
+nodes:
+  - id: implement
+    kind: Task
+    description: "Add logout button"
+    context:
+      - format: uri-list
+        uris:
+          - repo://src/components/UserProfile.tsx
+          - repo://src/auth/session.ts
+      - format: markdown
+        content: |
+          Use the existing `<Button />` component.
+          Session clear is `auth.logout()`.
+```
+
+**Execution with runtime notes:**
+
+```yaml
+spec:
+  planRef: { name: logout-v1 }
+  context:
+    - format: json
+      content:
+        incidentId: "INC-42"
+        rationale: "Fixes stale token issue from incident"
+```
+
+### Security
+
+- `context` is NOT for secrets
+- Implementations MAY reject or scrub content matching secret patterns
+- Reference secrets via URIs (`secret://...`) instead of embedding them
+
+### Implementation Notes
+
+- Size limits are implementation-defined
+- Implementations MAY index context into a knowledge graph
+- Implementations MAY redact context for compliance reasons
+- Context SHOULD be preserved when copying or versioning resources
+
+### What Belongs Where
+
+**Embed in context:**
+- Short rationale notes
+- Code pointer lists
+- Small markdown fragments clarifying intent
+- Runtime notes (e.g., "flaky test; rerun with flag X")
+
+**Keep in external systems (knowledge graph, docs):**
+- Full PRDs and design docs
+- Long investigations
+- Meeting transcripts
+- Large code excerpts
+- Organization-wide guidance
+
+The sweet spot is **embed pointers + short summary** in context, keep full content external.
 
 ---
 

@@ -66,6 +66,13 @@
           "minimum": 0,
           "maximum": 1000,
           "default": 0
+        },
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments (notes, code pointers, structured data)",
+          "items": {
+            "$ref": "../common/context.schema.json"
+          }
         }
       },
       "additionalProperties": false

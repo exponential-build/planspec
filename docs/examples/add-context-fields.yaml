@@ -1,0 +1,258 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: add-context-fields
+  namespace: planspec
+spec:
+  description: "Add context attachment fields to PlanSpec resources for embedding markdown snippets, code pointers, and structured notes"
+  constraints:
+    scope: minimal
+    philosophy: "attachments not knowledge-graph"
+  acceptanceCriteria:
+    - description: "spec.context[] available on Goal, Plan, and Execution resources"
+    - description: "Plan.spec.graph.nodes[].context[] available for per-node context"
+    - description: "ContextItem supports formats: markdown, text, json, uri-list"
+    - description: "Schema validates context structure and format enum"
+    - description: "Server accepts and stores context without modification"
+    - description: "CLI displays context in describe output"
+    - description: "Documentation explains context vs knowledge-graph split"
+  timeout: "3d"
+  priority: 80
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: add-context-fields-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: add-context-fields
+    planspec.io/series: add-context-fields
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: add-context-fields
+  series: add-context-fields
+  version: "1"
+  description: "Implementation plan for context attachment fields"
+  graph:
+    nodes:
+      - id: design-schema
+        kind: Task
+        description: "Design ContextItem schema in schemas/common/context.schema.json"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ### ContextItem Schema Design
+
+              ```json
+              {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "description": "Optional identifier" },
+                  "format": { "enum": ["markdown", "text", "json", "uri-list"] },
+                  "content": { "description": "String for markdown/text, object for json" },
+                  "uris": { "type": "array", "items": { "type": "string", "format": "uri" } }
+                },
+                "required": ["format"],
+                "oneOf": [
+                  { "required": ["content"] },
+                  { "required": ["uris"] }
+                ]
+              }
+              ```
+
+              - `format` is required, determines interpretation
+              - Either `content` or `uris` must be present (not both)
+              - `name` is optional, for referencing specific context items
+        outputs:
+          - schemas/common/context.schema.json
+
+      - id: update-resource-schemas
+        kind: Task
+        description: "Add spec.context[] to Goal, Plan, Execution schemas; add context[] to Plan node schema"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add to each resource schema:
+              ```json
+              "context": {
+                "type": "array",
+                "items": { "$ref": "../common/context.schema.json" },
+                "description": "Contextual attachments (notes, pointers, structured data)"
+              }
+              ```
+
+              For Plan nodes, add same field to node schema.
+        outputs:
+          - schemas/v1alpha1/goal.schema.json
+          - schemas/v1alpha1/plan.schema.json
+          - schemas/v1alpha1/execution.schema.json
+
+      - id: update-spec-docs
+        kind: Task
+        description: "Update SPECIFICATION.md with Context section explaining field, formats, and KG split"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add new section "## Context Attachments" covering:
+              - Purpose: execution-local notes that travel with the plan
+              - ContextItem schema and format enum
+              - Use cases for each format
+              - What belongs in context vs knowledge graph
+              - Security: not for secrets, use URIs to reference secrets
+              - Size limits are implementation-defined
+        outputs:
+          - SPECIFICATION.md
+
+      - id: update-server-validation
+        kind: Task
+        description: "Update server's embedded schemas to include context field validation"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              The server uses embedded schemas in `server/src/validate.rs`.
+              Add `context` field to each resource schema's `spec` properties.
+              Keep validation minimal - just structure, not content scanning.
+        outputs:
+          - server/src/validate.rs
+
+      - id: update-cli-describe
+        kind: Task
+        description: "Update CLI describe command to display context attachments"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In describe output, show context items:
+              ```
+              Context:
+                [markdown] design-notes
+                  ### Notes
+                  - Use existing hook...
+
+                [uri-list] code-pointers
+                  - repo://src/auth/session.ts
+              ```
+
+              Truncate long content with "..." and show byte count.
+        outputs:
+          - cli/src/commands/describe.rs
+
+      - id: update-cli-validation
+        kind: Task
+        description: "Update CLI's embedded schemas to match server"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - cli/src/schema/mod.rs
+
+      - id: create-example
+        kind: Task
+        description: "Create example YAML showing context usage across Goal, Plan nodes, and Execution"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Create `docs/examples/context-example.yaml` demonstrating:
+              - Goal with markdown design notes
+              - Plan with uri-list pointing to relevant files
+              - Node-level context with implementation hints
+              - Execution with runtime notes
+        outputs:
+          - docs/examples/context-example.yaml
+
+      - id: integration-test
+        kind: Task
+        description: "Test end-to-end: validate, apply, get, describe resources with context"
+        capabilityRef:
+          name: code-execution
+
+      - id: review
+        kind: Gate
+        description: "Human review: context fields working as expected?"
+        when: "manualApproval"
+
+    edges:
+      - from: design-schema
+        to: update-resource-schemas
+      - from: design-schema
+        to: update-spec-docs
+      - from: update-resource-schemas
+        to: update-server-validation
+      - from: update-resource-schemas
+        to: update-cli-validation
+      - from: update-server-validation
+        to: update-cli-describe
+      - from: update-cli-validation
+        to: update-cli-describe
+      - from: update-spec-docs
+        to: create-example
+      - from: update-cli-describe
+        to: create-example
+      - from: create-example
+        to: integration-test
+      - from: integration-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-generation
+  namespace: planspec
+spec:
+  displayName: "Code Generation"
+  description: "Generate source code from specifications and requirements"
+  category: development
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-execution
+  namespace: planspec
+spec:
+  displayName: "Code Execution"
+  description: "Execute code, run tests, and verify behavior"
+  category: development
+---
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: context-fields-bindings
+  namespace: planspec
+spec:
+  rules:
+    - selector:
+        capabilityRef:
+          name: code-generation
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: code-execution
+      target:
+        provider: "agent://claude-code"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: add-context-fields-exec-001
+  namespace: planspec
+spec:
+  goalRef:
+    name: add-context-fields
+  planRef:
+    name: add-context-fields-v1
+  bindingRef:
+    name: context-fields-bindings
+  parameters:
+    mode: interactive

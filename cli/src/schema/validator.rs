@@ -138,6 +138,19 @@ const GOAL_SCHEMA: &str = r#"
         "priority": {
           "type": "integer",
           "minimum": 0
+        },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
         }
       }
     },
@@ -206,6 +219,19 @@ const PLAN_SCHEMA: &str = r#"
             }
           }
         },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
         "graph": {
           "type": "object",
           "required": ["nodes"],
@@ -231,7 +257,20 @@ const PLAN_SCHEMA: &str = r#"
                   "outputs": { "type": "array" },
                   "timeout": { "type": "string" },
                   "retries": { "type": "integer" },
-                  "when": { "type": "string" }
+                  "when": { "type": "string" },
+                  "context": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["format"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+                        "content": {},
+                        "uris": { "type": "array", "items": { "type": "string" } }
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -486,6 +525,19 @@ const EXECUTION_SCHEMA: &str = r#"
         },
         "parameters": {
           "type": "object"
+        },
+        "context": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["format"],
+            "properties": {
+              "name": { "type": "string" },
+              "format": { "type": "string", "enum": ["markdown", "text", "json", "uri-list"] },
+              "content": {},
+              "uris": { "type": "array", "items": { "type": "string" } }
+            }
+          }
         }
       }
     },
