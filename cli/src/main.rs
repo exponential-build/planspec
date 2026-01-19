@@ -55,7 +55,7 @@ enum Commands {
         selector: Option<String>,
 
         /// List resources from all namespaces
-        #[arg(long)]
+        #[arg(short = 'A', long)]
         all_namespaces: bool,
 
         /// Filter plans by series
