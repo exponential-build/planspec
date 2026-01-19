@@ -55,11 +55,40 @@ pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str
         return Ok(());
     }
 
-    // Group resources by namespace
-    let namespace = config.namespace();
-
+    // Group resources by namespace from their metadata
     let client = Client::new(config)?;
-    let result = client.apply(&namespace, &resources).await?;
+    let default_ns = config.namespace();
+
+    // Group resources by their metadata.namespace
+    let mut by_namespace: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    for resource in resources {
+        let ns = resource
+            .get("metadata")
+            .and_then(|m| m.get("namespace"))
+            .and_then(|n| n.as_str())
+            .unwrap_or(&default_ns)
+            .to_string();
+        by_namespace.entry(ns).or_default().push(resource);
+    }
+
+    // Apply each namespace group
+    let mut all_applied = Vec::new();
+    let mut all_errors = Vec::new();
+
+    for (namespace, ns_resources) in by_namespace {
+        let result = client.apply(&namespace, &ns_resources).await?;
+        if let Some(applied) = result.get("applied").and_then(|a| a.as_array()) {
+            all_applied.extend(applied.clone());
+        }
+        if let Some(errors) = result.get("errors").and_then(|e| e.as_array()) {
+            all_errors.extend(errors.clone());
+        }
+    }
+
+    let result = serde_json::json!({
+        "applied": all_applied,
+        "errors": all_errors
+    });
 
     match output_format {
         "json" => println!("{}", serde_json::to_string_pretty(&result)?),
@@ -111,7 +140,7 @@ fn output_apply_result(result: &Value) {
                 _ => action.normal(),
             };
 
-            println!("{}/{} {} {}", kind.to_lowercase(), name, action_colored, ns);
+            println!("{}/{}/{} {}", ns, kind.to_lowercase(), name, action_colored);
         }
     }
 
