@@ -1,0 +1,20 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: add-context-fields
+  namespace: planspec
+spec:
+  description: "Add context attachment fields to PlanSpec resources for embedding markdown snippets, code pointers, and structured notes"
+  constraints:
+    scope: minimal
+    philosophy: "attachments not knowledge-graph"
+  acceptanceCriteria:
+    - description: "spec.context[] available on Goal, Plan, and Execution resources"
+    - description: "Plan.spec.graph.nodes[].context[] available for per-node context"
+    - description: "ContextItem supports formats: markdown, text, json, uri-list"
+    - description: "Schema validates context structure and format enum"
+    - description: "Server accepts and stores context without modification"
+    - description: "CLI displays context in describe output"
+    - description: "Documentation explains context vs knowledge-graph split"
+  timeout: "3d"
+  priority: 80

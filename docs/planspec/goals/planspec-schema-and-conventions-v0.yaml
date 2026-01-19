@@ -1,0 +1,22 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-schema-and-conventions-v0
+  namespace: planspec
+spec:
+  description: "Establish schema conventions and validation for PlanSpec resources"
+  acceptanceCriteria:
+    - description: "JSON schemas are complete for all resource types"
+    - description: "Naming conventions documented and enforced"
+    - description: "Label and annotation conventions established"
+  context:
+    - name: conventions
+      format: markdown
+      content: |
+        Key conventions to establish:
+        - Resource naming: lowercase, hyphenated (e.g., `my-goal-name`)
+        - Labels: `planspec.io/` prefix for system labels
+        - Annotations: `planspec.io/` prefix for system annotations
+        - Series/version: Plans use `spec.series` and `spec.version` for versioning
+        - Goal references: Plans link to Goals via `spec.goalRef.name`
+  priority: 900

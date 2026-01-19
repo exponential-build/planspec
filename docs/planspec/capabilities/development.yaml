@@ -1,0 +1,146 @@
+# Development Capabilities
+#
+# Capabilities related to code development: analysis, generation, review, refactoring.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-analysis
+  namespace: planspec
+  labels:
+    category: development
+spec:
+  displayName: "Code Analysis"
+  description: "Analyze code structure, patterns, and dependencies"
+  category: development
+  inputs:
+    - name: paths
+      type: array
+      description: "File or directory paths to analyze"
+      required: true
+    - name: language
+      type: string
+      description: "Programming language (auto-detected if not specified)"
+    - name: focus
+      type: array
+      description: "Specific aspects to focus on (e.g., security, performance)"
+  outputs:
+    - name: analysis
+      type: object
+      description: "Structured analysis results"
+    - name: recommendations
+      type: array
+      description: "Actionable recommendations"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-generation
+  namespace: planspec
+  labels:
+    category: development
+spec:
+  displayName: "Code Generation"
+  description: "Generate code from specifications and requirements"
+  category: development
+  inputs:
+    - name: specification
+      type: string
+      description: "What to generate"
+      required: true
+    - name: language
+      type: string
+      description: "Target programming language"
+      required: true
+    - name: framework
+      type: string
+      description: "Framework to use (e.g., react, express)"
+    - name: targetFiles
+      type: array
+      description: "Files to create or modify"
+    - name: style
+      type: object
+      description: "Code style preferences"
+  outputs:
+    - name: files
+      type: array
+      description: "Generated or modified files"
+    - name: changes
+      type: object
+      description: "Summary of changes made"
+  requirements:
+    - capability: code-analysis
+      optional: true
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-review
+  namespace: planspec
+  labels:
+    category: development
+spec:
+  displayName: "Code Review"
+  description: "Review code changes and provide feedback"
+  category: development
+  inputs:
+    - name: changes
+      type: object
+      description: "Code changes to review (diff or file list)"
+      required: true
+    - name: focus
+      type: array
+      description: "Aspects to focus on (correctness, style, security, performance)"
+      default: ["correctness", "security"]
+    - name: context
+      type: string
+      description: "Additional context about the changes"
+  outputs:
+    - name: comments
+      type: array
+      description: "Review comments"
+    - name: approval
+      type: boolean
+      description: "Whether the changes are approved"
+    - name: suggestions
+      type: array
+      description: "Improvement suggestions"
+  requirements:
+    - capability: code-analysis
+      optional: true
+    - capability: security-scan
+      optional: true
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: refactoring
+  namespace: planspec
+  labels:
+    category: development
+spec:
+  displayName: "Refactoring"
+  description: "Refactor code to improve structure without changing behavior"
+  category: development
+  inputs:
+    - name: targetCode
+      type: array
+      description: "Files or modules to refactor"
+      required: true
+    - name: goals
+      type: array
+      description: "Refactoring goals (e.g., extract-function, simplify-logic)"
+    - name: constraints
+      type: object
+      description: "Constraints to respect (API stability, performance)"
+  outputs:
+    - name: changes
+      type: array
+      description: "Refactored code changes"
+    - name: explanation
+      type: string
+      description: "Explanation of changes made"
+  requirements:
+    - capability: code-analysis
+    - capability: test-execution
+      optional: true

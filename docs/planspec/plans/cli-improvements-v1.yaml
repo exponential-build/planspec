@@ -1,30 +1,4 @@
 apiVersion: planspec.io/v1alpha1
-kind: Goal
-metadata:
-  name: cli-improvements
-  namespace: planspec
-spec:
-  description: "Improve CLI to better display plan versioning, status, and filtering"
-  constraints:
-    language: rust
-    cli: planspec
-  acceptanceCriteria:
-    - description: "describe plan shows supersedes and series/version prominently"
-    - description: "get plans --series filters by series"
-    - description: "get plans sorts by (series, version desc) by default"
-    - description: "Plan.status.phase and nodeCount populated on create/replace"
-    - description: "List views show PHASE and NODES columns populated"
-  context:
-    - name: motivation
-      format: markdown
-      content: |
-        Currently `planspec get plans` shows empty PHASE and NODES columns.
-        The server should populate these on create/replace, and the CLI
-        should support filtering by series to make versioning visible.
-  timeout: "2d"
-  priority: 80
----
-apiVersion: planspec.io/v1alpha1
 kind: Plan
 metadata:
   name: cli-improvements-v1
@@ -184,34 +158,3 @@ spec:
         to: rebuild-test
       - from: rebuild-test
         to: review
----
-apiVersion: planspec.io/v1alpha1
-kind: Binding
-metadata:
-  name: cli-improvements-bindings
-  namespace: planspec
-spec:
-  rules:
-    - selector:
-        capabilityRef:
-          name: code-generation
-      target:
-        provider: "agent://claude-code"
-    - selector:
-        capabilityRef:
-          name: code-execution
-      target:
-        provider: "agent://claude-code"
----
-apiVersion: planspec.io/v1alpha1
-kind: Execution
-metadata:
-  name: cli-improvements-exec-001
-  namespace: planspec
-spec:
-  goalRef:
-    name: cli-improvements
-  planRef:
-    name: cli-improvements-v1
-  bindingRef:
-    name: cli-improvements-bindings

@@ -1,0 +1,1015 @@
+# PlanSpec Plans - v0.1.0 Fixture
+#
+# All plan definitions for the PlanSpec project.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: add-context-fields-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: add-context-fields
+    planspec.io/series: add-context-fields
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: add-context-fields
+  series: add-context-fields
+  version: "1"
+  description: "Implementation plan for context attachment fields"
+  graph:
+    nodes:
+      - id: design-schema
+        kind: Task
+        description: "Design ContextItem schema in schemas/common/context.schema.json"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ### ContextItem Schema Design
+
+              ```json
+              {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "description": "Optional identifier" },
+                  "format": { "enum": ["markdown", "text", "json", "uri-list"] },
+                  "content": { "description": "String for markdown/text, object for json" },
+                  "uris": { "type": "array", "items": { "type": "string", "format": "uri" } }
+                },
+                "required": ["format"],
+                "oneOf": [
+                  { "required": ["content"] },
+                  { "required": ["uris"] }
+                ]
+              }
+              ```
+
+              - `format` is required, determines interpretation
+              - Either `content` or `uris` must be present (not both)
+              - `name` is optional, for referencing specific context items
+        outputs:
+          - schemas/common/context.schema.json
+
+      - id: update-resource-schemas
+        kind: Task
+        description: "Add spec.context[] to Goal, Plan, Execution schemas; add context[] to Plan node schema"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add to each resource schema:
+              ```json
+              "context": {
+                "type": "array",
+                "items": { "$ref": "../common/context.schema.json" },
+                "description": "Contextual attachments (notes, pointers, structured data)"
+              }
+              ```
+
+              For Plan nodes, add same field to node schema.
+        outputs:
+          - schemas/v1alpha1/goal.schema.json
+          - schemas/v1alpha1/plan.schema.json
+          - schemas/v1alpha1/execution.schema.json
+
+      - id: update-spec-docs
+        kind: Task
+        description: "Update SPECIFICATION.md with Context section explaining field, formats, and KG split"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Add new section "## Context Attachments" covering:
+              - Purpose: execution-local notes that travel with the plan
+              - ContextItem schema and format enum
+              - Use cases for each format
+              - What belongs in context vs knowledge graph
+              - Security: not for secrets, use URIs to reference secrets
+              - Size limits are implementation-defined
+        outputs:
+          - SPECIFICATION.md
+
+      - id: update-server-validation
+        kind: Task
+        description: "Update server's embedded schemas to include context field validation"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              The server uses embedded schemas in `server/src/validate.rs`.
+              Add `context` field to each resource schema's `spec` properties.
+              Keep validation minimal - just structure, not content scanning.
+        outputs:
+          - server/src/validate.rs
+
+      - id: update-cli-describe
+        kind: Task
+        description: "Update CLI describe command to display context attachments"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In describe output, show context items:
+              ```
+              Context:
+                [markdown] design-notes
+                  ### Notes
+                  - Use existing hook...
+
+                [uri-list] code-pointers
+                  - repo://src/auth/session.ts
+              ```
+
+              Truncate long content with "..." and show byte count.
+        outputs:
+          - cli/src/commands/describe.rs
+
+      - id: update-cli-validation
+        kind: Task
+        description: "Update CLI's embedded schemas to match server"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - cli/src/schema/mod.rs
+
+      - id: create-example
+        kind: Task
+        description: "Create example YAML showing context usage across Goal, Plan nodes, and Execution"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Create `docs/examples/context-example.yaml` demonstrating:
+              - Goal with markdown design notes
+              - Plan with uri-list pointing to relevant files
+              - Node-level context with implementation hints
+              - Execution with runtime notes
+        outputs:
+          - docs/examples/context-example.yaml
+
+      - id: integration-test
+        kind: Task
+        description: "Test end-to-end: validate, apply, get, describe resources with context"
+        capabilityRef:
+          name: code-execution
+
+      - id: review
+        kind: Gate
+        description: "Human review: context fields working as expected?"
+        when: "manualApproval"
+
+    edges:
+      - from: design-schema
+        to: update-resource-schemas
+      - from: design-schema
+        to: update-spec-docs
+      - from: update-resource-schemas
+        to: update-server-validation
+      - from: update-resource-schemas
+        to: update-cli-validation
+      - from: update-server-validation
+        to: update-cli-describe
+      - from: update-cli-validation
+        to: update-cli-describe
+      - from: update-spec-docs
+        to: create-example
+      - from: update-cli-describe
+        to: create-example
+      - from: create-example
+        to: integration-test
+      - from: integration-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: apiserver-lite-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: implement-apiserver-lite
+    planspec.io/series: apiserver-lite
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: implement-apiserver-lite
+  series: apiserver-lite
+  version: "1"
+  description: "Implementation plan for minimal PlanSpec API server"
+  graph:
+    nodes:
+      - id: project-setup
+        kind: Task
+        description: "Create server/ directory with Cargo.toml, dependencies (axum, sqlx, tokio, serde)"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/Cargo.toml
+          - server/src/main.rs
+
+      - id: data-model
+        kind: Task
+        description: "Define storage types: StoredObject with key, object_json, uid, resourceVersion, generation, timestamps"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: project-setup
+        outputs:
+          - server/src/storage/mod.rs
+          - server/src/storage/types.rs
+
+      - id: storage-layer
+        kind: Task
+        description: "Implement SQLite storage: init schema, CRUD operations, resourceVersion checks, generation increment logic"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: data-model
+        outputs:
+          - server/src/storage/sqlite.rs
+
+      - id: validation
+        kind: Task
+        description: "Integrate JSON schema validation and DAG cycle detection for Plans"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: project-setup
+        outputs:
+          - server/src/validate.rs
+
+      - id: routes-crud
+        kind: Task
+        description: "Implement REST routes: list, get, create, replace, delete for all resource types"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on:
+            - storage-layer
+            - validation
+        outputs:
+          - server/src/routes/mod.rs
+          - server/src/routes/resources.rs
+
+      - id: routes-apply
+        kind: Task
+        description: "Implement POST /namespaces/{ns}/apply for atomic multi-resource apply"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: routes-crud
+        outputs:
+          - server/src/routes/apply.rs
+
+      - id: routes-validate
+        kind: Task
+        description: "Implement POST /validate for dry-run validation without persistence"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: routes-crud
+        outputs:
+          - server/src/routes/validate.rs
+
+      - id: watch
+        kind: Task
+        description: "Implement watch endpoint with broadcast channel and NDJSON streaming"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: storage-layer
+        outputs:
+          - server/src/watch.rs
+
+      - id: wire-up
+        kind: Task
+        description: "Wire all routes into Axum router, add server startup with configurable port"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on:
+            - routes-crud
+            - routes-apply
+            - routes-validate
+            - watch
+        outputs:
+          - server/src/main.rs
+
+      - id: integration-test
+        kind: Task
+        description: "Test end-to-end: start server, use CLI to apply/get/watch resources"
+        capabilityRef:
+          name: code-execution
+        inputs:
+          depends_on: wire-up
+
+      - id: review
+        kind: Gate
+        description: "Human review: does it meet acceptance criteria?"
+        inputs:
+          depends_on: integration-test
+
+    edges:
+      - from: project-setup
+        to: data-model
+      - from: project-setup
+        to: validation
+      - from: data-model
+        to: storage-layer
+      - from: storage-layer
+        to: routes-crud
+      - from: validation
+        to: routes-crud
+      - from: routes-crud
+        to: routes-apply
+      - from: routes-crud
+        to: routes-validate
+      - from: storage-layer
+        to: watch
+      - from: routes-crud
+        to: wire-up
+      - from: routes-apply
+        to: wire-up
+      - from: routes-validate
+        to: wire-up
+      - from: watch
+        to: wire-up
+      - from: wire-up
+        to: integration-test
+      - from: integration-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: apiserver-lite-v2
+  namespace: planspec
+  labels:
+    planspec.io/goal: implement-apiserver-lite
+    planspec.io/series: apiserver-lite
+    planspec.io/version: "2"
+spec:
+  goalRef:
+    name: implement-apiserver-lite
+  series: apiserver-lite
+  version: "2"
+  supersedes:
+    - name: apiserver-lite-v1
+  description: "Implementation plan for minimal PlanSpec API server (v2: cleaner dependency model)"
+  graph:
+    nodes:
+      - id: project-setup
+        kind: Task
+        description: "Create server/ directory with Cargo.toml, dependencies (axum, sqlx, tokio, serde, jsonschema)"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/Cargo.toml
+          - server/src/main.rs
+
+      - id: data-model
+        kind: Task
+        description: "Define storage types: StoredObject with namespace, kind, name, object JSON, uid, resourceVersion, generation, timestamps"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/storage/mod.rs
+          - server/src/storage/types.rs
+
+      - id: storage-layer
+        kind: Task
+        description: "Implement SQLite storage: init schema, CRUD operations, resourceVersion checks, generation increment logic (spec changes only)"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/storage/sqlite.rs
+
+      - id: validation
+        kind: Task
+        description: "Integrate JSON schema validation (embed schemas via include_str! or inline constants) and DAG cycle detection for Plans"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/validate.rs
+
+      - id: routes-crud
+        kind: Task
+        description: "Implement REST routes: list, get, create, replace, delete, status subresource for all resource types"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/routes/mod.rs
+          - server/src/routes/resources.rs
+
+      - id: routes-apply
+        kind: Task
+        description: "Implement POST /namespaces/{ns}/apply for atomic multi-resource apply with validation"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/routes/apply.rs
+
+      - id: routes-validate
+        kind: Task
+        description: "Implement POST /validate for dry-run validation without persistence"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/routes/validate.rs
+
+      - id: watch
+        kind: Task
+        description: "Implement watch endpoint with broadcast channel and SSE streaming"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/src/watch.rs
+
+      - id: wire-up
+        kind: Task
+        description: "Wire all routes into Axum router, add server startup with configurable port (default 8080)"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          port: 8080
+        outputs:
+          - server/src/main.rs
+
+      - id: integration-test
+        kind: Task
+        description: "Test end-to-end: start server, use CLI to apply/get/watch resources, verify all acceptance criteria endpoints"
+        capabilityRef:
+          name: code-execution
+
+      - id: review
+        kind: Gate
+        description: "Human review: does it meet acceptance criteria?"
+        when: "manualApproval"
+
+    edges:
+      - from: project-setup
+        to: data-model
+      - from: project-setup
+        to: validation
+      - from: data-model
+        to: storage-layer
+      - from: storage-layer
+        to: routes-crud
+      - from: validation
+        to: routes-crud
+      - from: routes-crud
+        to: routes-apply
+      - from: routes-crud
+        to: routes-validate
+      - from: storage-layer
+        to: watch
+      - from: routes-crud
+        to: wire-up
+      - from: routes-apply
+        to: wire-up
+      - from: routes-validate
+        to: wire-up
+      - from: watch
+        to: wire-up
+      - from: wire-up
+        to: integration-test
+      - from: integration-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: cli-improvements-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: cli-improvements
+    planspec.io/series: cli-improvements
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: cli-improvements
+  series: cli-improvements
+  version: "1"
+  description: "Implementation plan for CLI and server improvements"
+  context:
+    - format: markdown
+      content: |
+        The improvements span both server (status population) and CLI
+        (display and filtering). Server changes should come first since
+        CLI depends on having data to display.
+  graph:
+    nodes:
+      - id: server-status-population
+        kind: Task
+        description: "Populate Plan.status.phase and nodeCount on create/replace in server"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `server/src/routes/resources.rs` and `apply.rs`:
+              - After successful validation, set `status.phase = "Ready"`
+              - Count nodes and set `status.nodeCount`
+              - Do this before storing the resource
+
+              ```rust
+              // After validation passes
+              if kind == "Plan" {
+                  if let Some(spec) = body.get("spec") {
+                      if let Some(graph) = spec.get("graph") {
+                          let node_count = graph.get("nodes")
+                              .and_then(|n| n.as_array())
+                              .map(|a| a.len())
+                              .unwrap_or(0);
+                          body["status"] = json!({
+                              "phase": "Ready",
+                              "nodeCount": node_count
+                          });
+                      }
+                  }
+              }
+              ```
+          - format: uri-list
+            uris:
+              - server/src/routes/resources.rs
+              - server/src/routes/apply.rs
+        outputs:
+          - server/src/routes/resources.rs
+          - server/src/routes/apply.rs
+
+      - id: cli-describe-supersedes
+        kind: Task
+        description: "Show supersedes chain in describe plan output"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/describe.rs`, update `describe_plan`:
+              - Show "Supersedes: plan-v1" if present
+              - Format series/version more prominently
+
+              Example output:
+              ```
+              Series: apiserver-lite
+              Version: 2
+              Supersedes: apiserver-lite-v1
+              ```
+          - format: uri-list
+            uris:
+              - cli/src/commands/describe.rs
+        outputs:
+          - cli/src/commands/describe.rs
+
+      - id: cli-get-series-filter
+        kind: Task
+        description: "Add --series flag to filter plans by series"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/get.rs`:
+              - Add `--series` CLI argument
+              - Filter results client-side (server doesn't have label selector yet)
+              - Usage: `planspec get plans --series apiserver-lite`
+          - format: uri-list
+            uris:
+              - cli/src/commands/get.rs
+              - cli/src/main.rs
+        outputs:
+          - cli/src/commands/get.rs
+          - cli/src/main.rs
+
+      - id: cli-sort-plans
+        kind: Task
+        description: "Sort plans by (series, version desc) in list output"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/get.rs`:
+              - After fetching plans, sort by series (asc), then version (desc)
+              - Use natural sort for version strings if possible
+              - This puts latest versions at top within each series
+        outputs:
+          - cli/src/commands/get.rs
+
+      - id: rebuild-test
+        kind: Task
+        description: "Rebuild CLI and server, test with existing plans"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              Test commands:
+              ```bash
+              cargo build --release  # both cli and server
+              planspec get plans -n planspec
+              planspec get plans -n planspec --series apiserver-lite
+              planspec describe plan apiserver-lite-v2 -n planspec
+              ```
+
+              Expected:
+              - PHASE shows "Ready"
+              - NODES shows node count
+              - --series filter works
+              - describe shows supersedes
+
+      - id: review
+        kind: Gate
+        description: "Human review of improvements"
+        when: "manualApproval"
+
+    edges:
+      - from: server-status-population
+        to: cli-describe-supersedes
+      - from: server-status-population
+        to: cli-get-series-filter
+      - from: cli-describe-supersedes
+        to: cli-sort-plans
+      - from: cli-get-series-filter
+        to: cli-sort-plans
+      - from: cli-sort-plans
+        to: rebuild-test
+      - from: rebuild-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: cli-improvements-v2
+  namespace: planspec
+  labels:
+    planspec.io/goal: cli-improvements
+    planspec.io/series: cli-improvements
+    planspec.io/version: "2"
+spec:
+  goalRef:
+    name: cli-improvements
+  series: cli-improvements
+  version: "2"
+  supersedes:
+    - name: cli-improvements-v1
+  description: "Add kubectl-style -A shorthand for --all-namespaces"
+  context:
+    - format: markdown
+      content: |
+        Follow-up improvement to match kubectl conventions.
+        Users familiar with kubectl expect `-A` to work.
+  graph:
+    nodes:
+      - id: add-short-flag
+        kind: Task
+        description: "Add short = 'A' to --all-namespaces argument in CLI"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/main.rs`, update the Get command's all_namespaces arg:
+              ```rust
+              #[arg(short = 'A', long)]
+              all_namespaces: bool,
+              ```
+        outputs:
+          - cli/src/main.rs
+
+      - id: test
+        kind: Task
+        description: "Verify -A works as expected"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              ```bash
+              planspec get plans -A
+              planspec get goals -A
+              ```
+
+      - id: review
+        kind: Gate
+        description: "Human review"
+        when: "manualApproval"
+
+    edges:
+      - from: add-short-flag
+        to: test
+      - from: test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: planspec-core-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: planspec-core-crate
+    planspec.io/series: planspec-core
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: planspec-core-crate
+  series: planspec-core
+  version: "1"
+  description: "Implementation plan for planspec-core shared crate"
+  context:
+    - format: markdown
+      content: |
+        The crate should be designed library-first, meaning types should be
+        ergonomic for Rust consumers, not just internal use. Use builder
+        patterns where appropriate, implement standard traits, and provide
+        good documentation.
+  graph:
+    nodes:
+      - id: create-crate
+        kind: Task
+        description: "Create planspec-core crate with Cargo.toml and module structure"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Create `core/` directory with:
+              ```
+              core/
+              ├── Cargo.toml
+              └── src/
+                  ├── lib.rs
+                  ├── types/
+                  │   ├── mod.rs
+                  │   ├── meta.rs      # ObjectMeta, ObjectReference, OwnerReference
+                  │   ├── status.rs    # Condition, common status patterns
+                  │   ├── context.rs   # ContextItem
+                  │   ├── goal.rs
+                  │   ├── plan.rs      # Plan, Graph, Node, Edge
+                  │   ├── capability.rs
+                  │   ├── binding.rs
+                  │   └── execution.rs
+                  ├── validate/
+                  │   ├── mod.rs
+                  │   └── schemas.rs   # Embedded JSON schemas
+                  └── resource.rs      # Resource enum and traits
+              ```
+
+              Cargo.toml dependencies:
+              - serde, serde_json (serialization)
+              - chrono (timestamps)
+              - uuid (uid generation)
+              - jsonschema (validation)
+              - thiserror (error types)
+        outputs:
+          - core/Cargo.toml
+          - core/src/lib.rs
+
+      - id: impl-meta-types
+        kind: Task
+        description: "Implement ObjectMeta, ObjectReference, OwnerReference, Condition"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/status.rs
+
+      - id: impl-context
+        kind: Task
+        description: "Implement ContextItem type"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/context.rs
+
+      - id: impl-resources
+        kind: Task
+        description: "Implement Goal, Plan, Capability, Binding, Execution types"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/goal.rs
+          - core/src/types/plan.rs
+          - core/src/types/capability.rs
+          - core/src/types/binding.rs
+          - core/src/types/execution.rs
+
+      - id: impl-resource-enum
+        kind: Task
+        description: "Implement Resource enum for polymorphic handling"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/resource.rs
+
+      - id: impl-api-types
+        kind: Task
+        description: "Implement API types for client/server interoperability"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/api.rs
+
+      - id: impl-validation
+        kind: Task
+        description: "Move JSON schema validation to planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/validate/mod.rs
+          - core/src/validate/schemas.rs
+
+      - id: impl-helpers
+        kind: Task
+        description: "Add helper methods and builder patterns"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/plan.rs
+
+      - id: update-cli
+        kind: Task
+        description: "Update CLI to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - cli/Cargo.toml
+          - cli/src/commands/validate.rs
+
+      - id: update-server
+        kind: Task
+        description: "Update server to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/Cargo.toml
+          - server/src/routes/resources.rs
+          - server/src/routes/apply.rs
+
+      - id: add-tests
+        kind: Task
+        description: "Add unit tests for core types and validation"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/lib.rs
+
+      - id: add-docs
+        kind: Task
+        description: "Add rustdoc documentation"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/lib.rs
+
+      - id: build-test
+        kind: Task
+        description: "Build all crates and run tests"
+        capabilityRef:
+          name: code-execution
+
+      - id: review
+        kind: Gate
+        description: "Human review of planspec-core implementation"
+        when: "manualApproval"
+
+    edges:
+      - from: create-crate
+        to: impl-meta-types
+      - from: impl-meta-types
+        to: impl-context
+      - from: impl-context
+        to: impl-resources
+      - from: impl-resources
+        to: impl-resource-enum
+      - from: impl-resource-enum
+        to: impl-api-types
+      - from: impl-api-types
+        to: impl-validation
+      - from: impl-validation
+        to: impl-helpers
+      - from: impl-helpers
+        to: update-cli
+      - from: impl-helpers
+        to: update-server
+      - from: update-cli
+        to: add-tests
+      - from: update-server
+        to: add-tests
+      - from: add-tests
+        to: add-docs
+      - from: add-docs
+        to: build-test
+      - from: build-test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: planspec-v0-goal-graph
+  namespace: planspec
+  labels:
+    planspec.io/goal: planspec-v0-ready-for-exponential
+    planspec.io/series: planspec-v0-goal-graph
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: planspec-v0-ready-for-exponential
+  series: planspec-v0-goal-graph
+  version: "1"
+  description: "Meta-plan showing goal dependencies for PlanSpec v0 readiness"
+  context:
+    - format: markdown
+      content: |
+        This plan represents the dependency graph between PlanSpec v0 goals.
+        Each node is an External node pointing to a goal that must be completed.
+
+        The dependency order ensures:
+        1. Schema conventions established first
+        2. Test infrastructure built on conventions
+        3. Plan resolution depends on tests
+        4. Status/observability completes the stack
+  graph:
+    nodes:
+      - id: schema-and-conventions
+        kind: External
+        description: "Establish schema conventions and validation"
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-schema-and-conventions-v0
+
+              Establishes the foundation:
+              - JSON schemas for all resource types
+              - Naming conventions
+              - Label and annotation conventions
+
+      - id: fixtures-and-tests
+        kind: External
+        description: "Create fixtures and integration test infrastructure"
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-fixtures-and-integration-tests
+
+              Builds on schema conventions:
+              - fixtures/ directory with versioned bundles
+              - Integration tests for apply/get/watch
+              - CI integration
+
+      - id: goal-to-plan-resolution
+        kind: External
+        description: "Implement goal-to-plan resolution MVP"
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-goal-to-plan-resolution-mvp
+
+              Core orchestration logic:
+              - Goal.status.activePlanRef
+              - planSelector matching
+              - Plan versioning (series/version/supersedes)
+
+      - id: status-and-observability
+        kind: External
+        description: "Implement status updates and observability"
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-status-and-observability-v0
+
+              Completes the v0 stack:
+              - Proper status conditions
+              - observedGeneration tracking
+              - Phase transitions via watch
+
+      - id: v0-ready
+        kind: Gate
+        description: "All v0 goals completed - PlanSpec ready for Exponential"
+        when: "allDependenciesComplete"
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-v0-ready-for-exponential
+
+              Final verification:
+              - All subgoals completed
+              - PlanSpec used for all development work
+              - Documentation complete
+
+    edges:
+      - from: schema-and-conventions
+        to: fixtures-and-tests
+      - from: fixtures-and-tests
+        to: goal-to-plan-resolution
+      - from: goal-to-plan-resolution
+        to: status-and-observability
+      - from: status-and-observability
+        to: v0-ready

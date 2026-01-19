@@ -1,0 +1,69 @@
+# Planning Capabilities
+#
+# Capabilities for planning and architecture design.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: planning
+  namespace: planspec
+  labels:
+    category: planning
+spec:
+  displayName: "Planning"
+  description: "Create implementation plans from goals"
+  category: planning
+  inputs:
+    - name: goalRef
+      type: object
+      description: "Reference to the goal to plan for"
+      required: true
+    - name: constraints
+      type: object
+      description: "Constraints to consider (time, resources, technology)"
+    - name: context
+      type: array
+      description: "Contextual information for planning"
+  outputs:
+    - name: plan
+      type: object
+      description: "Generated Plan resource"
+  requirements:
+    - capability: research
+      optional: true
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: architecture
+  namespace: planspec
+  labels:
+    category: planning
+spec:
+  displayName: "Architecture"
+  description: "Design system architecture and make technical decisions"
+  category: planning
+  inputs:
+    - name: requirements
+      type: array
+      description: "Functional and non-functional requirements"
+      required: true
+    - name: constraints
+      type: object
+      description: "Architectural constraints (scale, latency, cost)"
+    - name: context
+      type: array
+      description: "Existing system context and integrations"
+  outputs:
+    - name: design
+      type: object
+      description: "Architectural design document"
+    - name: decisions
+      type: array
+      description: "Key architectural decisions and rationale"
+    - name: tradeoffs
+      type: array
+      description: "Documented tradeoffs and alternatives considered"
+  requirements:
+    - capability: research
+      optional: true

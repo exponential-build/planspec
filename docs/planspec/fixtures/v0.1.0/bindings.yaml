@@ -1,0 +1,75 @@
+# PlanSpec Bindings - v0.1.0 Fixture
+#
+# Default resolution rules for mapping capabilities to providers.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: default-bindings
+  namespace: planspec
+spec:
+  rules:
+    # Development capabilities
+    - selector:
+        capabilityRef:
+          name: code-analysis
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: code-generation
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: code-review
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: refactoring
+      target:
+        provider: "agent://claude-code"
+
+    # Testing capabilities
+    - selector:
+        capabilityRef:
+          name: test-generation
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: test-execution
+      target:
+        provider: "agent://claude-code"
+
+    # Documentation capability
+    - selector:
+        capabilityRef:
+          name: documentation
+      target:
+        provider: "agent://claude-code"
+
+    # Analysis capabilities
+    - selector:
+        capabilityRef:
+          name: research
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: security-scan
+      target:
+        provider: "agent://claude-code"
+
+    # Planning capabilities
+    - selector:
+        capabilityRef:
+          name: planning
+      target:
+        provider: "agent://claude-code"
+    - selector:
+        capabilityRef:
+          name: architecture
+      target:
+        provider: "agent://claude-code"

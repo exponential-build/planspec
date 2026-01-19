@@ -1,0 +1,26 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: implement-apiserver-lite
+  namespace: planspec
+spec:
+  description: "Implement a minimal local PlanSpec API server as a reference implementation"
+  constraints:
+    language: rust
+    framework: axum
+    storage: sqlite
+  acceptanceCriteria:
+    - description: "Server stores resources by {namespace, kind, name}"
+    - description: "resourceVersion enforces optimistic concurrency on PUT"
+    - description: "generation increments only on spec changes (not on status updates)"
+    - description: "Schema validation rejects invalid resources"
+    - description: "Plan DAG acyclicity is enforced on create/replace"
+    - description: "Watch endpoint streams SSE events"
+    - description: "CLI can apply, get, and watch resources against server"
+    - description: "POST /apis/planspec.io/v1alpha1/namespaces/{ns}/apply returns created/updated resources"
+    - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name} returns single resource"
+    - description: "PUT /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name} requires resourceVersion"
+    - description: "PUT /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name}/status updates only status"
+    - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/watch streams events"
+  timeout: "7d"
+  priority: 100

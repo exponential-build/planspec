@@ -1,0 +1,202 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: planspec-core-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: planspec-core-crate
+    planspec.io/series: planspec-core
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: planspec-core-crate
+  series: planspec-core
+  version: "1"
+  description: "Implementation plan for planspec-core shared crate"
+  context:
+    - format: markdown
+      content: |
+        The crate should be designed library-first, meaning types should be
+        ergonomic for Rust consumers, not just internal use. Use builder
+        patterns where appropriate, implement standard traits, and provide
+        good documentation.
+  graph:
+    nodes:
+      - id: create-crate
+        kind: Task
+        description: "Create planspec-core crate with Cargo.toml and module structure"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Create `core/` directory with:
+              ```
+              core/
+              ├── Cargo.toml
+              └── src/
+                  ├── lib.rs
+                  ├── types/
+                  │   ├── mod.rs
+                  │   ├── meta.rs      # ObjectMeta, ObjectReference, OwnerReference
+                  │   ├── status.rs    # Condition, common status patterns
+                  │   ├── context.rs   # ContextItem
+                  │   ├── goal.rs
+                  │   ├── plan.rs      # Plan, Graph, Node, Edge
+                  │   ├── capability.rs
+                  │   ├── binding.rs
+                  │   └── execution.rs
+                  ├── validate/
+                  │   ├── mod.rs
+                  │   └── schemas.rs   # Embedded JSON schemas
+                  └── resource.rs      # Resource enum and traits
+              ```
+
+              Cargo.toml dependencies:
+              - serde, serde_json (serialization)
+              - chrono (timestamps)
+              - uuid (uid generation)
+              - jsonschema (validation)
+              - thiserror (error types)
+        outputs:
+          - core/Cargo.toml
+          - core/src/lib.rs
+
+      - id: impl-meta-types
+        kind: Task
+        description: "Implement ObjectMeta, ObjectReference, OwnerReference, Condition"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/status.rs
+
+      - id: impl-context
+        kind: Task
+        description: "Implement ContextItem type"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/context.rs
+
+      - id: impl-resources
+        kind: Task
+        description: "Implement Goal, Plan, Capability, Binding, Execution types"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/goal.rs
+          - core/src/types/plan.rs
+          - core/src/types/capability.rs
+          - core/src/types/binding.rs
+          - core/src/types/execution.rs
+
+      - id: impl-resource-enum
+        kind: Task
+        description: "Implement Resource enum for polymorphic handling"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/resource.rs
+
+      - id: impl-api-types
+        kind: Task
+        description: "Implement API types for client/server interoperability"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/api.rs
+
+      - id: impl-validation
+        kind: Task
+        description: "Move JSON schema validation to planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/validate/mod.rs
+          - core/src/validate/schemas.rs
+
+      - id: impl-helpers
+        kind: Task
+        description: "Add helper methods and builder patterns"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/types/meta.rs
+          - core/src/types/plan.rs
+
+      - id: update-cli
+        kind: Task
+        description: "Update CLI to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - cli/Cargo.toml
+          - cli/src/commands/validate.rs
+
+      - id: update-server
+        kind: Task
+        description: "Update server to depend on planspec-core"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/Cargo.toml
+          - server/src/routes/resources.rs
+          - server/src/routes/apply.rs
+
+      - id: add-tests
+        kind: Task
+        description: "Add unit tests for core types and validation"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/lib.rs
+
+      - id: add-docs
+        kind: Task
+        description: "Add rustdoc documentation"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - core/src/lib.rs
+
+      - id: build-test
+        kind: Task
+        description: "Build all crates and run tests"
+        capabilityRef:
+          name: code-execution
+
+      - id: review
+        kind: Gate
+        description: "Human review of planspec-core implementation"
+        when: "manualApproval"
+
+    edges:
+      - from: create-crate
+        to: impl-meta-types
+      - from: impl-meta-types
+        to: impl-context
+      - from: impl-context
+        to: impl-resources
+      - from: impl-resources
+        to: impl-resource-enum
+      - from: impl-resource-enum
+        to: impl-api-types
+      - from: impl-api-types
+        to: impl-validation
+      - from: impl-validation
+        to: impl-helpers
+      - from: impl-helpers
+        to: update-cli
+      - from: impl-helpers
+        to: update-server
+      - from: update-cli
+        to: add-tests
+      - from: update-server
+        to: add-tests
+      - from: add-tests
+        to: add-docs
+      - from: add-docs
+        to: build-test
+      - from: build-test
+        to: review
