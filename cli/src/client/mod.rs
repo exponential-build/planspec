@@ -17,6 +17,8 @@ impl Config {
     }
 
     pub fn namespace(&self) -> String {
-        self.namespace.clone().unwrap_or_else(|| "default".to_string())
+        self.namespace
+            .clone()
+            .unwrap_or_else(|| "default".to_string())
     }
 }

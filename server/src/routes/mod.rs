@@ -40,6 +40,8 @@ pub fn api_routes() -> Router<AppState> {
             "/namespaces/:namespace/plans/:name/graph",
             get(resources::get_plan_graph),
         )
+        // List all namespaces (must be before /:resource catch-all)
+        .route("/namespaces", get(resources::list_namespaces))
         // Cross-namespace listing
         .route("/:resource", get(resources::list_all))
 }

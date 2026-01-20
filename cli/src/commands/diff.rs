@@ -9,8 +9,8 @@ use crate::client::{Client, Config};
 /// Show diff between file and server state
 pub async fn run(config: &Config, file: &str, output_format: &str) -> Result<()> {
     let path = Path::new(file);
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read file: {}", file))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", file))?;
 
     let resources = parse_yaml_documents(&content)?;
 
@@ -83,8 +83,8 @@ fn parse_yaml_documents(content: &str) -> Result<Vec<Value>> {
     let mut resources = Vec::new();
 
     for doc in serde_yaml::Deserializer::from_str(content) {
-        let value: Value = serde::Deserialize::deserialize(doc)
-            .context("Failed to parse YAML document")?;
+        let value: Value =
+            serde::Deserialize::deserialize(doc).context("Failed to parse YAML document")?;
 
         if value.is_null() {
             continue;
@@ -153,11 +153,11 @@ fn show_diff(server: &Value, local: &Value, format: &str) -> Result<()> {
     let _server_lines: Vec<&str> = server_str.lines().collect();
     let _local_lines: Vec<&str> = local_str.lines().collect();
 
-    for diff in diff::lines(&server_str, &local_str) {
+    for diff in simple_diff::lines(&server_str, &local_str) {
         match diff {
-            diff::Result::Left(l) => println!("{}", format!("- {}", l).red()),
-            diff::Result::Right(r) => println!("{}", format!("+ {}", r).green()),
-            diff::Result::Both(l, _) => println!("  {}", l),
+            simple_diff::Result::Left(l) => println!("{}", format!("- {}", l).red()),
+            simple_diff::Result::Right(r) => println!("{}", format!("+ {}", r).green()),
+            simple_diff::Result::Both(l, _) => println!("  {}", l),
         }
     }
 
@@ -258,14 +258,21 @@ fn diff_values(path: &str, server: &Value, local: &Value, indent: usize) {
         }
         _ => {
             if server != local {
-                println!("{}{} {}: {} -> {}", indent_str, "~".yellow(), path, server, local);
+                println!(
+                    "{}{} {}: {} -> {}",
+                    indent_str,
+                    "~".yellow(),
+                    path,
+                    server,
+                    local
+                );
             }
         }
     }
 }
 
 // Simple diff implementation
-mod diff {
+mod simple_diff {
     pub enum Result<'a> {
         Left(&'a str),
         Right(&'a str),
@@ -293,8 +300,12 @@ mod diff {
                 new_idx += 1;
             } else {
                 // Simple approach: check if old line appears later in new
-                let old_in_new = new_lines[new_idx..].iter().position(|&l| l == old_lines[old_idx]);
-                let new_in_old = old_lines[old_idx..].iter().position(|&l| l == new_lines[new_idx]);
+                let old_in_new = new_lines[new_idx..]
+                    .iter()
+                    .position(|&l| l == old_lines[old_idx]);
+                let new_in_old = old_lines[old_idx..]
+                    .iter()
+                    .position(|&l| l == new_lines[new_idx]);
 
                 match (old_in_new, new_in_old) {
                     (Some(oin), Some(nio)) if oin <= nio => {

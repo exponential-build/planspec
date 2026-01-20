@@ -8,8 +8,8 @@ use std::path::Path;
 /// Validate resources from a file against JSON schemas (offline)
 pub fn run(file: &str, output_format: &str) -> Result<()> {
     let path = Path::new(file);
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read file: {}", file))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", file))?;
 
     // Parse YAML (supports multi-document)
     let resources = parse_yaml_documents(&content)?;
@@ -19,8 +19,8 @@ pub fn run(file: &str, output_format: &str) -> Result<()> {
         return Ok(());
     }
 
-    let validator = Validator::new()
-        .map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
+    let validator =
+        Validator::new().map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
     let mut all_valid = true;
     let mut results = Vec::new();
 
@@ -97,8 +97,8 @@ fn parse_yaml_documents(content: &str) -> Result<Vec<Value>> {
     let mut resources = Vec::new();
 
     for doc in serde_yaml::Deserializer::from_str(content) {
-        let value: Value = serde::Deserialize::deserialize(doc)
-            .context("Failed to parse YAML document")?;
+        let value: Value =
+            serde::Deserialize::deserialize(doc).context("Failed to parse YAML document")?;
 
         // Skip null documents (empty docs between ---)
         if value.is_null() {

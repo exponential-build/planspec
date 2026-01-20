@@ -8,6 +8,19 @@ use planspec_core::{WatchEvent, WatchEventType};
 
 use super::types::StoredObject;
 
+/// Type alias for the database row tuple to reduce complexity warnings
+type DbRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    String,
+    String,
+);
+
 /// SQLite-backed storage for PlanSpec resources
 #[derive(Clone)]
 pub struct Store {
@@ -145,8 +158,13 @@ impl Store {
     }
 
     /// Get a resource by key
-    pub async fn get(&self, namespace: &str, kind: &str, name: &str) -> Result<Option<StoredObject>> {
-        let row: Option<(String, String, String, String, String, i64, i64, String, String)> =
+    pub async fn get(
+        &self,
+        namespace: &str,
+        kind: &str,
+        name: &str,
+    ) -> Result<Option<StoredObject>> {
+        let row: Option<DbRow> =
             sqlx::query_as(
                 r#"
                 SELECT namespace, kind, name, object_json, uid, resource_version, generation, created_at, updated_at
@@ -181,7 +199,7 @@ impl Store {
 
     /// List resources by namespace and kind
     pub async fn list(&self, namespace: &str, kind: &str) -> Result<Vec<StoredObject>> {
-        let rows: Vec<(String, String, String, String, String, i64, i64, String, String)> =
+        let rows: Vec<DbRow> =
             sqlx::query_as(
                 r#"
                 SELECT namespace, kind, name, object_json, uid, resource_version, generation, created_at, updated_at
@@ -215,7 +233,7 @@ impl Store {
 
     /// List all resources of a kind across all namespaces
     pub async fn list_all(&self, kind: &str) -> Result<Vec<StoredObject>> {
-        let rows: Vec<(String, String, String, String, String, i64, i64, String, String)> =
+        let rows: Vec<DbRow> =
             sqlx::query_as(
                 r#"
                 SELECT namespace, kind, name, object_json, uid, resource_version, generation, created_at, updated_at
@@ -374,5 +392,20 @@ impl Store {
             object: existing.object,
             rev: resource_version.to_string(),
         }))
+    }
+
+    /// List all unique namespaces that contain resources
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT namespace
+            FROM resources
+            ORDER BY namespace
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|(ns,)| ns).collect())
     }
 }

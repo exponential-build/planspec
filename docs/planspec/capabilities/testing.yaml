@@ -1,6 +1,6 @@
-# Testing Capabilities
+# Testing and Execution Capabilities
 #
-# Capabilities related to testing: test generation, test execution.
+# Capabilities related to testing and code execution.
 ---
 apiVersion: planspec.io/v1alpha1
 kind: Capability
@@ -66,3 +66,36 @@ spec:
     - name: coverage
       type: object
       description: "Coverage report"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-execution
+  namespace: planspec
+  labels:
+    category: execution
+spec:
+  displayName: "Code Execution"
+  description: "Execute code, scripts, or shell commands"
+  category: execution
+  inputs:
+    - name: command
+      type: string
+      description: "Command or script to execute"
+      required: true
+    - name: workingDirectory
+      type: string
+      description: "Working directory for execution"
+    - name: environment
+      type: object
+      description: "Environment variables"
+  outputs:
+    - name: exitCode
+      type: integer
+      description: "Exit code of the command"
+    - name: stdout
+      type: string
+      description: "Standard output"
+    - name: stderr
+      type: string
+      description: "Standard error"

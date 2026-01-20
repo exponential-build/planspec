@@ -15,7 +15,7 @@ spec:
     - description: "generation increments only on spec changes (not on status updates)"
     - description: "Schema validation rejects invalid resources"
     - description: "Plan DAG acyclicity is enforced on create/replace"
-    - description: "Watch endpoint streams SSE events"
+    - description: "Watch endpoint streams NDJSON events"
     - description: "CLI can apply, get, and watch resources against server"
     - description: "POST /apis/planspec.io/v1alpha1/namespaces/{ns}/apply returns created/updated resources"
     - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name} returns single resource"

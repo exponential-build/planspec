@@ -79,8 +79,7 @@ mod serialization {
 
     #[test]
     fn camel_case_serialization() {
-        let meta = ObjectMeta::new("test", "default")
-            .with_label("app.kubernetes.io/name", "test");
+        let meta = ObjectMeta::new("test", "default").with_label("app.kubernetes.io/name", "test");
 
         let json = serde_json::to_string(&meta).unwrap();
 
@@ -127,7 +126,9 @@ mod validation {
         assert!(result.is_err());
 
         let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::MissingKind)));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingKind)));
     }
 
     #[test]
@@ -147,7 +148,9 @@ mod validation {
         assert!(result.is_err());
 
         let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::UnknownKind(_))));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownKind(_))));
     }
 
     #[test]
@@ -235,7 +238,9 @@ mod validation {
         assert!(result.is_err());
 
         let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::CyclicGraph { .. })));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::CyclicGraph { .. })));
     }
 
     #[test]
@@ -265,7 +270,9 @@ mod validation {
         assert!(result.is_err());
 
         let errors = result.unwrap_err();
-        assert!(errors.iter().any(|e| matches!(e, ValidationError::InvalidEdgeReference { .. })));
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidEdgeReference { .. })));
     }
 }
 
@@ -317,20 +324,14 @@ mod graph {
 
     #[test]
     fn simple_cycle_detected() {
-        let graph = make_graph(
-            vec![("a", "A"), ("b", "B")],
-            vec![("a", "b"), ("b", "a")],
-        );
+        let graph = make_graph(vec![("a", "A"), ("b", "B")], vec![("a", "b"), ("b", "a")]);
         assert!(!graph.is_acyclic());
         assert!(graph.detect_cycle().is_some());
     }
 
     #[test]
     fn self_loop_detected() {
-        let graph = make_graph(
-            vec![("a", "A")],
-            vec![("a", "a")],
-        );
+        let graph = make_graph(vec![("a", "A")], vec![("a", "a")]);
         assert!(!graph.is_acyclic());
     }
 
@@ -387,10 +388,7 @@ mod graph {
 
     #[test]
     fn topological_order_fails_on_cycle() {
-        let graph = make_graph(
-            vec![("a", "A"), ("b", "B")],
-            vec![("a", "b"), ("b", "a")],
-        );
+        let graph = make_graph(vec![("a", "A"), ("b", "B")], vec![("a", "b"), ("b", "a")]);
         assert!(graph.topological_order().is_err());
     }
 }

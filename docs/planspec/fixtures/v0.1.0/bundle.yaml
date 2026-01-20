@@ -1,8 +1,7 @@
-# PlanSpec Capabilities - v0.1.0 Fixture
-#
-# All capability definitions for the PlanSpec project.
----
 # Analysis Capabilities
+#
+# Capabilities for research and security scanning.
+---
 apiVersion: planspec.io/v1alpha1
 kind: Capability
 metadata:
@@ -70,8 +69,10 @@ spec:
     - name: recommendations
       type: array
       description: "Remediation recommendations"
----
 # Development Capabilities
+#
+# Capabilities related to code development: analysis, generation, review, refactoring.
+---
 apiVersion: planspec.io/v1alpha1
 kind: Capability
 metadata:
@@ -214,8 +215,10 @@ spec:
     - capability: code-analysis
     - capability: test-execution
       optional: true
----
 # Documentation Capability
+#
+# Capability for generating and updating documentation.
+---
 apiVersion: planspec.io/v1alpha1
 kind: Capability
 metadata:
@@ -247,8 +250,10 @@ spec:
     - name: documents
       type: array
       description: "Generated documentation files"
----
 # Planning Capabilities
+#
+# Capabilities for planning and architecture design.
+---
 apiVersion: planspec.io/v1alpha1
 kind: Capability
 metadata:
@@ -314,8 +319,10 @@ spec:
   requirements:
     - capability: research
       optional: true
+# Testing and Execution Capabilities
+#
+# Capabilities related to testing and code execution.
 ---
-# Testing Capabilities
 apiVersion: planspec.io/v1alpha1
 kind: Capability
 metadata:
@@ -380,10 +387,39 @@ spec:
     - name: coverage
       type: object
       description: "Coverage report"
-# PlanSpec Goals - v0.1.0 Fixture
-#
-# All goals for the PlanSpec project.
 ---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-execution
+  namespace: planspec
+  labels:
+    category: execution
+spec:
+  displayName: "Code Execution"
+  description: "Execute code, scripts, or shell commands"
+  category: execution
+  inputs:
+    - name: command
+      type: string
+      description: "Command or script to execute"
+      required: true
+    - name: workingDirectory
+      type: string
+      description: "Working directory for execution"
+    - name: environment
+      type: object
+      description: "Environment variables"
+  outputs:
+    - name: exitCode
+      type: integer
+      description: "Exit code of the command"
+    - name: stdout
+      type: string
+      description: "Standard output"
+    - name: stderr
+      type: string
+      description: "Standard error"
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -404,7 +440,6 @@ spec:
     - description: "Documentation explains context vs knowledge-graph split"
   timeout: "3d"
   priority: 80
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -430,7 +465,6 @@ spec:
         should support filtering by series to make versioning visible.
   timeout: "2d"
   priority: 80
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -448,7 +482,7 @@ spec:
     - description: "generation increments only on spec changes (not on status updates)"
     - description: "Schema validation rejects invalid resources"
     - description: "Plan DAG acyclicity is enforced on create/replace"
-    - description: "Watch endpoint streams SSE events"
+    - description: "Watch endpoint streams NDJSON events"
     - description: "CLI can apply, get, and watch resources against server"
     - description: "POST /apis/planspec.io/v1alpha1/namespaces/{ns}/apply returns created/updated resources"
     - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name} returns single resource"
@@ -457,7 +491,6 @@ spec:
     - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/watch streams events"
   timeout: "7d"
   priority: 100
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -488,7 +521,6 @@ spec:
         - Better developer experience for ecosystem builders
   timeout: "3d"
   priority: 90
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -523,7 +555,6 @@ spec:
         3. Verify resources via get/describe
         4. Test watch for live updates
   priority: 875
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -550,7 +581,6 @@ spec:
 
         MVP focuses on basic matching; advanced selectors come later.
   priority: 850
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -573,7 +603,6 @@ spec:
         - Series/version: Plans use `spec.series` and `spec.version` for versioning
         - Goal references: Plans link to Goals via `spec.goalRef.name`
   priority: 900
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -609,7 +638,6 @@ spec:
         - Phase provides high-level summary
         - Watch streams status changes in real-time
   priority: 825
----
 apiVersion: planspec.io/v1alpha1
 kind: Goal
 metadata:
@@ -1062,7 +1090,7 @@ spec:
 
       - id: watch
         kind: Task
-        description: "Implement watch endpoint with broadcast channel and SSE streaming"
+        description: "Implement watch endpoint with broadcast channel and NDJSON streaming"
         capabilityRef:
           name: code-generation
         outputs:

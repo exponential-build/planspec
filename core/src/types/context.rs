@@ -82,10 +82,11 @@ impl ContextItem {
 }
 
 /// ContextFormat specifies how to interpret context content.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum ContextFormat {
     /// Markdown-formatted text.
+    #[default]
     Markdown,
     /// Plain text.
     Text,
@@ -93,10 +94,4 @@ pub enum ContextFormat {
     Json,
     /// List of URIs (uses the `uris` field instead of `content`).
     UriList,
-}
-
-impl Default for ContextFormat {
-    fn default() -> Self {
-        Self::Markdown
-    }
 }
