@@ -15,6 +15,34 @@ use planspec_core::Validator;
 
 use crate::AppState;
 
+/// Populate Goal status with initial phase
+fn populate_goal_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set (allow client to override)
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Pending");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Accepted",
+            "status": "True",
+            "reason": "GoalCreated",
+            "message": "Goal has been accepted",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
 /// Populate Plan status with phase, nodeCount, and validation condition
 fn populate_plan_status(body: &mut Value, generation: i64) {
     let node_count = body
@@ -44,6 +72,102 @@ fn populate_plan_status(body: &mut Value, generation: i64) {
         "lastTransitionTime": now,
         "observedGeneration": generation
     }]);
+}
+
+/// Populate Execution status with initial phase
+fn populate_execution_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Pending");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Accepted",
+            "status": "True",
+            "reason": "ExecutionCreated",
+            "message": "Execution has been accepted and is pending",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate Capability status with initial phase
+fn populate_capability_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Available");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Available",
+            "status": "True",
+            "reason": "CapabilityRegistered",
+            "message": "Capability is available for use",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate Binding status with initial phase
+fn populate_binding_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Unresolved");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Resolved",
+            "status": "False",
+            "reason": "BindingCreated",
+            "message": "Binding created, resolution pending",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate resource status based on kind
+fn populate_resource_status(body: &mut Value, kind: &str, generation: i64) {
+    match kind {
+        "Goal" => populate_goal_status(body, generation),
+        "Plan" => populate_plan_status(body, generation),
+        "Execution" => populate_execution_status(body, generation),
+        "Capability" => populate_capability_status(body, generation),
+        "Binding" => populate_binding_status(body, generation),
+        _ => {}
+    }
 }
 
 /// Map resource type from URL to Kind
@@ -398,10 +522,8 @@ pub async fn create(
         metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
     }
 
-    // Populate status for Plans (generation 1 for new resources)
-    if kind == "Plan" {
-        populate_plan_status(&mut body, 1);
-    }
+    // Populate status for all resource types (generation 1 for new resources)
+    populate_resource_status(&mut body, kind, 1);
 
     let name = body
         .get("metadata")
@@ -568,12 +690,10 @@ pub async fn replace(
         .map(|obj| obj.generation)
         .unwrap_or(1);
 
-    // Populate status for Plans (generation may increment on spec change)
-    if kind == "Plan" {
-        // Check if spec changed - if so, generation will be incremented
-        let new_generation = existing_generation + 1; // Assume it might change
-        populate_plan_status(&mut body, new_generation);
-    }
+    // Populate status for all resource types (generation may increment on spec change)
+    // Note: existing phase from incoming body is preserved if set
+    let new_generation = existing_generation + 1; // Assume it might change
+    populate_resource_status(&mut body, kind, new_generation);
 
     let (stored, event) = state
         .store

@@ -8,22 +8,93 @@ use serde_json::{json, Value};
 
 use crate::AppState;
 
-/// Populate Plan status with phase and nodeCount
-fn populate_plan_status(body: &mut Value) {
-    let node_count = body
-        .get("spec")
-        .and_then(|s| s.get("graph"))
-        .and_then(|g| g.get("nodes"))
-        .and_then(|n| n.as_array())
-        .map(|a| a.len())
-        .unwrap_or(0);
+/// Populate resource status based on kind (simplified version for apply)
+fn populate_resource_status(body: &mut Value, kind: &str) {
+    let now = chrono::Utc::now().to_rfc3339();
 
-    // Initialize or update status
+    // Initialize status if not present
     if body.get("status").is_none() {
         body["status"] = json!({});
     }
-    body["status"]["phase"] = json!("Ready");
-    body["status"]["nodeCount"] = json!(node_count);
+
+    match kind {
+        "Goal" => {
+            if body["status"].get("phase").is_none() {
+                body["status"]["phase"] = json!("Pending");
+            }
+            if body["status"].get("conditions").is_none() {
+                body["status"]["conditions"] = json!([{
+                    "type": "Accepted",
+                    "status": "True",
+                    "reason": "GoalCreated",
+                    "message": "Goal has been accepted",
+                    "lastTransitionTime": now
+                }]);
+            }
+        }
+        "Plan" => {
+            let node_count = body
+                .get("spec")
+                .and_then(|s| s.get("graph"))
+                .and_then(|g| g.get("nodes"))
+                .and_then(|n| n.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
+
+            body["status"]["phase"] = json!("Ready");
+            body["status"]["nodeCount"] = json!(node_count);
+            body["status"]["conditions"] = json!([{
+                "type": "Valid",
+                "status": "True",
+                "reason": "SchemaValid",
+                "message": "Plan passed schema validation",
+                "lastTransitionTime": now
+            }]);
+        }
+        "Execution" => {
+            if body["status"].get("phase").is_none() {
+                body["status"]["phase"] = json!("Pending");
+            }
+            if body["status"].get("conditions").is_none() {
+                body["status"]["conditions"] = json!([{
+                    "type": "Accepted",
+                    "status": "True",
+                    "reason": "ExecutionCreated",
+                    "message": "Execution has been accepted and is pending",
+                    "lastTransitionTime": now
+                }]);
+            }
+        }
+        "Capability" => {
+            if body["status"].get("phase").is_none() {
+                body["status"]["phase"] = json!("Available");
+            }
+            if body["status"].get("conditions").is_none() {
+                body["status"]["conditions"] = json!([{
+                    "type": "Available",
+                    "status": "True",
+                    "reason": "CapabilityRegistered",
+                    "message": "Capability is available for use",
+                    "lastTransitionTime": now
+                }]);
+            }
+        }
+        "Binding" => {
+            if body["status"].get("phase").is_none() {
+                body["status"]["phase"] = json!("Unresolved");
+            }
+            if body["status"].get("conditions").is_none() {
+                body["status"]["conditions"] = json!([{
+                    "type": "Resolved",
+                    "status": "False",
+                    "reason": "BindingCreated",
+                    "message": "Binding created, resolution pending",
+                    "lastTransitionTime": now
+                }]);
+            }
+        }
+        _ => {}
+    }
 }
 
 /// Apply multiple resources atomically within a namespace
@@ -148,10 +219,8 @@ pub async fn apply(
             metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
         }
 
-        // Populate status for Plans
-        if kind == "Plan" {
-            populate_plan_status(&mut resource);
-        }
+        // Populate status for all resource types
+        populate_resource_status(&mut resource, &kind);
 
         // Check if exists
         let existing = state.store.get(&namespace, &kind, &name).await;

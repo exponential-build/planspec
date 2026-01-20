@@ -189,6 +189,8 @@ pub enum NodePhase {
     Failed,
     /// Node was skipped.
     Skipped,
+    /// Node was cancelled.
+    Cancelled,
 }
 
 /// Artifact represents an output produced by an execution.
