@@ -125,9 +125,20 @@ jobs:
 
       - name: Validate JSON schemas are valid
         run: |
-          for schema in schemas/v1alpha1/*.schema.json; do
+          # Validate base schemas (no cross-references to other v1alpha1 schemas)
+          for schema in schemas/v1alpha1/{goal,plan,capability,binding,execution}.schema.json; do
             echo "Validating $schema..."
             ajv compile -s "$schema" --spec=draft2020 -c ajv-formats \
-              -r "schemas/common/*.schema.json" \
-              -r "schemas/v1alpha1/*.schema.json" || exit 1
+              -r "schemas/common/*.schema.json" || exit 1
           done
+
+          # Validate document.schema.json (references other v1alpha1 schemas)
+          echo "Validating schemas/v1alpha1/document.schema.json..."
+          ajv compile --spec=draft2020 -c ajv-formats \
+            -r "schemas/common/*.schema.json" \
+            -r schemas/v1alpha1/goal.schema.json \
+            -r schemas/v1alpha1/plan.schema.json \
+            -r schemas/v1alpha1/capability.schema.json \
+            -r schemas/v1alpha1/binding.schema.json \
+            -r schemas/v1alpha1/execution.schema.json \
+            -s schemas/v1alpha1/document.schema.json
