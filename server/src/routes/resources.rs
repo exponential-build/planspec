@@ -96,7 +96,7 @@ pub async fn list(
     })))
 }
 
-/// List all namespaces that contain resources
+/// List all namespaces
 pub async fn list_namespaces(
     State(state): State<AppState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
@@ -120,7 +120,10 @@ pub async fn list_namespaces(
                 "apiVersion": "planspec.io/v1alpha1",
                 "kind": "Namespace",
                 "metadata": {
-                    "name": ns
+                    "name": ns.name,
+                    "uid": ns.uid,
+                    "resourceVersion": ns.resource_version.to_string(),
+                    "creationTimestamp": ns.created_at.to_rfc3339()
                 }
             })
         })
@@ -131,6 +134,158 @@ pub async fn list_namespaces(
         "kind": "NamespaceList",
         "items": items
     })))
+}
+
+/// Get a single namespace
+pub async fn get_namespace(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let ns = state.store.get_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    match ns {
+        Some(ns) => Ok(Json(json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": ns.name,
+                "uid": ns.uid,
+                "resourceVersion": ns.resource_version.to_string(),
+                "creationTimestamp": ns.created_at.to_rfc3339()
+            }
+        }))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' not found", name),
+                "reason": "NotFound",
+                "code": 404
+            })),
+        )),
+    }
+}
+
+/// Create a namespace
+pub async fn create_namespace(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let name = body
+        .get("metadata")
+        .and_then(|m| m.get("name"))
+        .and_then(|n| n.as_str())
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "kind": "Status",
+                    "status": "Failure",
+                    "message": "metadata.name is required",
+                    "reason": "Invalid",
+                    "code": 400
+                })),
+            )
+        })?
+        .to_string();
+
+    // Check if already exists
+    if state.store.namespace_exists(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })? {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' already exists", name),
+                "reason": "AlreadyExists",
+                "code": 409
+            })),
+        ));
+    }
+
+    let ns = state.store.create_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": ns.name,
+                "uid": ns.uid,
+                "resourceVersion": ns.resource_version.to_string(),
+                "creationTimestamp": ns.created_at.to_rfc3339()
+            }
+        })),
+    ))
+}
+
+/// Delete a namespace and all its resources
+pub async fn delete_namespace(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let result = state.store.delete_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    match result {
+        Some(_) => Ok(Json(json!({
+            "kind": "Status",
+            "status": "Success",
+            "message": format!("Namespace '{}' deleted", name),
+            "code": 200
+        }))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' not found", name),
+                "reason": "NotFound",
+                "code": 404
+            })),
+        )),
+    }
 }
 
 /// List resources across all namespaces
@@ -265,6 +420,40 @@ pub async fn create(
             )
         })?
         .to_string();
+
+    // Auto-create namespace if it doesn't exist
+    if !state
+        .store
+        .namespace_exists(&namespace)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "kind": "Status",
+                    "status": "Failure",
+                    "message": e.to_string(),
+                    "code": 500
+                })),
+            )
+        })?
+    {
+        state
+            .store
+            .create_namespace(&namespace)
+            .await
+            .map_err(|e| {
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    Json(json!({
+                        "kind": "Status",
+                        "status": "Failure",
+                        "message": e.to_string(),
+                        "code": 500
+                    })),
+                )
+            })?;
+    }
 
     // Check if already exists
     if state

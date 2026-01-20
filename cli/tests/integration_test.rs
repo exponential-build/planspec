@@ -439,23 +439,9 @@ spec:
 
     #[test]
     fn test_list_namespaces() {
-        // Apply something first to create a namespace
-        let goal_yaml = r#"
-apiVersion: planspec.io/v1alpha1
-kind: Goal
-metadata:
-  name: test-ns-goal
-  namespace: test-ns-list
-spec:
-  description: "Goal in test namespace"
-  acceptanceCriteria:
-    - description: "Criterion"
-  priority: 50
-"#;
-
-        let temp_file = std::env::temp_dir().join("test-ns-goal.yaml");
-        std::fs::write(&temp_file, goal_yaml).expect("Failed to write temp file");
-        run_cli(&["apply", "-f", temp_file.to_str().unwrap()]);
+        // Create a unique namespace for this test
+        let ns_name = "list-ns-test";
+        run_cli(&["create", "namespace", ns_name]);
 
         let output = run_cli(&["get", "namespaces"]);
         assert!(
@@ -465,10 +451,137 @@ spec:
         );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
+        // The output should have a NAME header and at least one namespace
         assert!(
-            stdout.contains("test-ns-list"),
-            "Should list the namespace: {}",
+            stdout.contains("NAME") && stdout.contains(ns_name),
+            "Should list namespaces including {}: {}",
+            ns_name,
             stdout
+        );
+    }
+
+    #[test]
+    fn test_create_namespace() {
+        // Create a namespace using CLI
+        let output = run_cli(&["create", "namespace", "test-create-ns"]);
+        assert!(
+            output.status.success(),
+            "Create namespace should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("created"),
+            "Should report namespace created: {}",
+            stdout
+        );
+
+        // Verify it appears in the list
+        let output = run_cli(&["get", "namespaces"]);
+        assert!(output.status.success());
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("test-create-ns"),
+            "Should list the created namespace: {}",
+            stdout
+        );
+    }
+
+    #[test]
+    fn test_describe_namespace() {
+        // First create a namespace
+        run_cli(&["create", "namespace", "test-describe-ns"]);
+
+        // Describe it
+        let output = run_cli(&["describe", "namespace", "test-describe-ns"]);
+        assert!(
+            output.status.success(),
+            "Describe namespace should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("test-describe-ns") && stdout.contains("Namespace"),
+            "Should show namespace details: {}",
+            stdout
+        );
+    }
+
+    #[test]
+    fn test_delete_namespace() {
+        // First create a namespace
+        run_cli(&["create", "namespace", "test-delete-ns"]);
+
+        // Delete it
+        let output = run_cli(&["delete", "namespace", "test-delete-ns"]);
+        assert!(
+            output.status.success(),
+            "Delete namespace should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("deleted"),
+            "Should report namespace deleted: {}",
+            stdout
+        );
+
+        // Verify it's gone
+        let output = run_cli(&["describe", "namespace", "test-delete-ns"]);
+        assert!(
+            !output.status.success()
+                || String::from_utf8_lossy(&output.stderr).contains("not found"),
+            "Namespace should be deleted"
+        );
+    }
+
+    #[test]
+    fn test_delete_namespace_cascade() {
+        // Create a namespace
+        run_cli(&["create", "namespace", "cascade-ns"]);
+
+        // Create a goal in that namespace
+        let goal_yaml = r#"
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: cascade-goal
+  namespace: cascade-ns
+spec:
+  description: "Goal to be cascade deleted"
+  acceptanceCriteria:
+    - description: "Criterion"
+  priority: 50
+"#;
+
+        let temp_file = std::env::temp_dir().join("cascade-goal.yaml");
+        std::fs::write(&temp_file, goal_yaml).expect("Failed to write temp file");
+        run_cli(&["apply", "-f", temp_file.to_str().unwrap()]);
+
+        // Verify goal exists
+        let output = run_cli(&["describe", "goal", "cascade-goal", "-n", "cascade-ns"]);
+        assert!(
+            output.status.success(),
+            "Goal should exist before cascade delete"
+        );
+
+        // Delete namespace (should cascade delete the goal)
+        let output = run_cli(&["delete", "namespace", "cascade-ns"]);
+        assert!(
+            output.status.success(),
+            "Delete namespace should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        // Verify goal is gone
+        let output = run_cli(&["describe", "goal", "cascade-goal", "-n", "cascade-ns"]);
+        assert!(
+            !output.status.success(),
+            "Goal should be gone after cascade delete"
         );
 
         std::fs::remove_file(temp_file).ok();

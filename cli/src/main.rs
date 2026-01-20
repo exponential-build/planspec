@@ -73,7 +73,16 @@ enum Commands {
 
     /// Delete a resource
     Delete {
-        /// Resource type (goal, plan, capability, binding, execution)
+        /// Resource type (goal, plan, capability, binding, execution, namespace)
+        resource: String,
+
+        /// Resource name
+        name: String,
+    },
+
+    /// Create a resource (currently only namespace is supported)
+    Create {
+        /// Resource type (namespace)
         resource: String,
 
         /// Resource name
@@ -151,6 +160,9 @@ async fn main() -> Result<()> {
         }
         Commands::Delete { resource, name } => {
             commands::delete::run(&config, &resource, &name).await
+        }
+        Commands::Create { resource, name } => {
+            commands::create::run(&config, &resource, &name).await
         }
         Commands::Validate { file } => commands::validate::run(&file, &cli.output),
         Commands::Watch { resource, selector } => {

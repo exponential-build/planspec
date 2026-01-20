@@ -124,31 +124,283 @@ mod api_tests {
     // ==================== Namespace Endpoints ====================
 
     #[tokio::test]
-    async fn test_list_namespaces_empty() {
+    async fn test_default_namespace_exists() {
         let app = test_app().await;
         let (status, body) =
             request(app, "GET", "/apis/planspec.io/v1alpha1/namespaces", None).await;
 
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["kind"], "NamespaceList");
-        assert!(body["items"].as_array().unwrap().is_empty());
+
+        // New databases should always have the "default" namespace
+        let items = body["items"].as_array().unwrap();
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0]["metadata"]["name"], "default");
     }
 
     #[tokio::test]
-    async fn test_list_namespaces_with_resources() {
+    async fn test_create_namespace() {
         let app = test_app().await;
 
-        // Create a resource to populate a namespace
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "test-ns"
+            }
+        });
+
+        let (status, body) = request(
+            app,
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::CREATED);
+        assert_eq!(body["kind"], "Namespace");
+        assert_eq!(body["metadata"]["name"], "test-ns");
+        assert!(body["metadata"]["uid"].as_str().is_some());
+        assert!(body["metadata"]["resourceVersion"].as_str().is_some());
+        assert!(body["metadata"]["creationTimestamp"].as_str().is_some());
+    }
+
+    #[tokio::test]
+    async fn test_create_namespace_conflict() {
+        let app = test_app().await;
+
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "test-ns"
+            }
+        });
+
+        // Create first
         let (status, _) = request(
             app.clone(),
             "POST",
-            "/apis/planspec.io/v1alpha1/namespaces/default/goals",
-            Some(test_goal()),
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns.clone()),
         )
         .await;
         assert_eq!(status, StatusCode::CREATED);
 
-        // Now list namespaces
+        // Try to create again
+        let (status, body) = request(
+            app,
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::CONFLICT);
+        assert_eq!(body["reason"], "AlreadyExists");
+    }
+
+    #[tokio::test]
+    async fn test_get_namespace() {
+        let app = test_app().await;
+
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "test-ns"
+            }
+        });
+
+        // Create first
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // Get it
+        let (status, body) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/test-ns",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["kind"], "Namespace");
+        assert_eq!(body["metadata"]["name"], "test-ns");
+    }
+
+    #[tokio::test]
+    async fn test_get_namespace_not_found() {
+        let app = test_app().await;
+
+        let (status, body) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/nonexistent",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["reason"], "NotFound");
+    }
+
+    #[tokio::test]
+    async fn test_delete_namespace() {
+        let app = test_app().await;
+
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "test-ns"
+            }
+        });
+
+        // Create first
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // Delete it
+        let (status, body) = request(
+            app.clone(),
+            "DELETE",
+            "/apis/planspec.io/v1alpha1/namespaces/test-ns",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["status"], "Success");
+
+        // Verify it's gone
+        let (status, _) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/test-ns",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_delete_namespace_not_found() {
+        let app = test_app().await;
+
+        let (status, body) = request(
+            app,
+            "DELETE",
+            "/apis/planspec.io/v1alpha1/namespaces/nonexistent",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(body["reason"], "NotFound");
+    }
+
+    #[tokio::test]
+    async fn test_delete_namespace_cascades() {
+        let app = test_app().await;
+
+        // Create a namespace
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "cascade-test"
+            }
+        });
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // Create a goal in that namespace
+        let mut goal = test_goal();
+        goal["metadata"]["namespace"] = json!("cascade-test");
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces/cascade-test/goals",
+            Some(goal),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // Verify goal exists
+        let (status, _) = request(
+            app.clone(),
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/cascade-test/goals/test-goal",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+
+        // Delete namespace
+        let (status, body) = request(
+            app.clone(),
+            "DELETE",
+            "/apis/planspec.io/v1alpha1/namespaces/cascade-test",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["status"], "Success");
+
+        // Verify goal is gone
+        let (status, _) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/cascade-test/goals/test-goal",
+            None,
+        )
+        .await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn test_list_namespaces_shows_empty() {
+        let app = test_app().await;
+
+        // Create an empty namespace
+        let ns = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": "empty-ns"
+            }
+        });
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            Some(ns),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // List namespaces - should show both default and empty namespace
         let (status, body) =
             request(app, "GET", "/apis/planspec.io/v1alpha1/namespaces", None).await;
 
@@ -156,8 +408,96 @@ mod api_tests {
         assert_eq!(body["kind"], "NamespaceList");
 
         let items = body["items"].as_array().unwrap();
-        assert_eq!(items.len(), 1);
-        assert_eq!(items[0]["metadata"]["name"], "default");
+        assert_eq!(items.len(), 2); // default + empty-ns
+
+        let ns_names: Vec<&str> = items
+            .iter()
+            .filter_map(|item| item["metadata"]["name"].as_str())
+            .collect();
+        assert!(ns_names.contains(&"default"));
+        assert!(ns_names.contains(&"empty-ns"));
+    }
+
+    #[tokio::test]
+    async fn test_auto_create_namespace_on_resource_create() {
+        let app = test_app().await;
+
+        // Create a resource in a namespace that doesn't exist yet
+        let mut goal = test_goal();
+        goal["metadata"]["namespace"] = json!("auto-created");
+
+        let (status, _) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces/auto-created/goals",
+            Some(goal),
+        )
+        .await;
+        assert_eq!(status, StatusCode::CREATED);
+
+        // Verify the namespace was auto-created
+        let (status, body) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/auto-created",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["kind"], "Namespace");
+        assert_eq!(body["metadata"]["name"], "auto-created");
+    }
+
+    #[tokio::test]
+    async fn test_auto_create_namespace_on_apply() {
+        let app = test_app().await;
+
+        // Apply a resource to a namespace that doesn't exist yet
+        let (status, body) = request(
+            app.clone(),
+            "POST",
+            "/apis/planspec.io/v1alpha1/namespaces/apply-auto-ns/apply",
+            Some(json!([test_goal()])),
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["applied"][0]["action"], "created");
+
+        // Verify the namespace was auto-created and appears in the list
+        let (status, body) = request(
+            app.clone(),
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        let items = body["items"].as_array().unwrap();
+        let ns_names: Vec<&str> = items
+            .iter()
+            .filter_map(|item| item["metadata"]["name"].as_str())
+            .collect();
+        assert!(
+            ns_names.contains(&"apply-auto-ns"),
+            "Namespace should appear in list after apply: {:?}",
+            ns_names
+        );
+
+        // Also verify we can get the specific namespace
+        let (status, body) = request(
+            app,
+            "GET",
+            "/apis/planspec.io/v1alpha1/namespaces/apply-auto-ns",
+            None,
+        )
+        .await;
+
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["kind"], "Namespace");
+        assert_eq!(body["metadata"]["name"], "apply-auto-ns");
     }
 
     // ==================== Goal Endpoints ====================

@@ -4,17 +4,37 @@ use serde_json::Value;
 
 use crate::client::{Client, Config};
 
+/// Check if resource type is a namespace
+fn is_namespace(resource: &str) -> bool {
+    matches!(
+        resource.to_lowercase().as_str(),
+        "namespace" | "namespaces" | "ns"
+    )
+}
+
 /// Show detailed information about a resource
 pub async fn run(config: &Config, resource: &str, name: &str, output_format: &str) -> Result<()> {
     let client = Client::new(config)?;
-    let resource_type = normalize_resource_type(resource);
 
-    let result = client.get(&resource_type, name, None).await?;
+    // Special handling for namespaces
+    let result = if is_namespace(resource) {
+        client.get_namespace(name).await?
+    } else {
+        let resource_type = normalize_resource_type(resource);
+        client.get(&resource_type, name, None).await?
+    };
 
     match output_format {
         "json" => println!("{}", serde_json::to_string_pretty(&result)?),
         "yaml" => println!("{}", serde_yaml::to_string(&result)?),
-        _ => describe_resource(&resource_type, &result),
+        _ => {
+            if is_namespace(resource) {
+                describe_namespace(&result);
+            } else {
+                let resource_type = normalize_resource_type(resource);
+                describe_resource(&resource_type, &result);
+            }
+        }
     }
 
     Ok(())
@@ -456,6 +476,24 @@ fn colorize_phase(phase: &str) -> String {
         "Failed" | "Invalid" | "Unresolved" => phase.red().to_string(),
         "Cancelled" | "Skipped" => phase.dimmed().to_string(),
         _ => phase.to_string(),
+    }
+}
+
+fn describe_namespace(resource: &Value) {
+    let metadata = resource.get("metadata").unwrap_or(&Value::Null);
+
+    let name = metadata.get("name").and_then(|n| n.as_str()).unwrap_or("");
+    println!("{}: {}", "Name".bold(), name);
+    println!("{}: Namespace", "Kind".bold());
+
+    if let Some(uid) = metadata.get("uid").and_then(|u| u.as_str()) {
+        println!("{}: {}", "UID".bold(), uid);
+    }
+    if let Some(rv) = metadata.get("resourceVersion").and_then(|r| r.as_str()) {
+        println!("{}: {}", "Resource Version".bold(), rv);
+    }
+    if let Some(ts) = metadata.get("creationTimestamp").and_then(|t| t.as_str()) {
+        println!("{}: {}", "Created".bold(), ts);
     }
 }
 
