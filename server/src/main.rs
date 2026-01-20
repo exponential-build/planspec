@@ -10,6 +10,9 @@ mod routes;
 mod storage;
 mod watch;
 
+#[cfg(test)]
+mod tests;
+
 use controllers::PlanResolver;
 use storage::Store;
 use watch::WatchBroadcaster;

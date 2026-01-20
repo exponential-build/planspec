@@ -9,7 +9,17 @@ use planspec_core::{WatchEvent, WatchEventType};
 use super::types::StoredObject;
 
 /// Type alias for the database row tuple to reduce complexity warnings
-type DbRow = (String, String, String, String, String, i64, i64, String, String);
+type DbRow = (
+    String,
+    String,
+    String,
+    String,
+    String,
+    i64,
+    i64,
+    String,
+    String,
+);
 
 /// SQLite-backed storage for PlanSpec resources
 #[derive(Clone)]
@@ -382,5 +392,20 @@ impl Store {
             object: existing.object,
             rev: resource_version.to_string(),
         }))
+    }
+
+    /// List all unique namespaces that contain resources
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        let rows: Vec<(String,)> = sqlx::query_as(
+            r#"
+            SELECT DISTINCT namespace
+            FROM resources
+            ORDER BY namespace
+            "#,
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        Ok(rows.into_iter().map(|(ns,)| ns).collect())
     }
 }

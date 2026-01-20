@@ -96,6 +96,43 @@ pub async fn list(
     })))
 }
 
+/// List all namespaces that contain resources
+pub async fn list_namespaces(
+    State(state): State<AppState>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let namespaces = state.store.list_namespaces().await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    // Return in Kubernetes-style NamespaceList format
+    let items: Vec<Value> = namespaces
+        .into_iter()
+        .map(|ns| {
+            json!({
+                "apiVersion": "planspec.io/v1alpha1",
+                "kind": "Namespace",
+                "metadata": {
+                    "name": ns
+                }
+            })
+        })
+        .collect();
+
+    Ok(Json(json!({
+        "apiVersion": "planspec.io/v1alpha1",
+        "kind": "NamespaceList",
+        "items": items
+    })))
+}
+
 /// List resources across all namespaces
 pub async fn list_all(
     State(state): State<AppState>,
