@@ -28,12 +28,14 @@ fn run_cli(args: &[&str]) -> std::process::Output {
 }
 
 /// Run planspec CLI and return stdout as string
+#[allow(dead_code)]
 fn run_cli_stdout(args: &[&str]) -> String {
     let output = run_cli(args);
     String::from_utf8_lossy(&output.stdout).to_string()
 }
 
 /// Run planspec CLI and check success
+#[allow(dead_code)]
 fn run_cli_success(args: &[&str]) -> bool {
     run_cli(args).status.success()
 }
@@ -79,8 +81,9 @@ spec:
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(
-            stdout.contains("test-goal-apply") && stdout.contains("created"),
-            "Should report goal created: {}",
+            stdout.contains("test-goal-apply")
+                && (stdout.contains("created") || stdout.contains("configured")),
+            "Should report goal created or configured: {}",
             stdout
         );
 

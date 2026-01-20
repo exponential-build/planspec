@@ -22,16 +22,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
-        run: |
-          cd core && cargo fmt --check
-          cd ../cli && cargo fmt --check
-          cd ../server && cargo fmt --check
+        run: cargo fmt --all --check
 
       - name: Clippy
-        run: |
-          cd core && cargo clippy -- -D warnings
-          cd ../cli && cargo clippy -- -D warnings
-          cd ../server && cargo clippy -- -D warnings
+        run: cargo clippy --workspace -- -D warnings
 
   build:
     name: Build
@@ -42,22 +36,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build all crates
-        run: |
-          cd core && cargo build --release
-          cd ../cli && cargo build --release
-          cd ../server && cargo build --release
+        run: cargo build --workspace --release
 
       - name: Upload CLI binary
         uses: actions/upload-artifact@v4
         with:
           name: planspec-cli
-          path: cli/target/release/planspec
+          path: target/release/planspec
 
       - name: Upload server binary
         uses: actions/upload-artifact@v4
         with:
           name: planspec-server
-          path: server/target/release/planspec-server
+          path: target/release/planspec-server
 
   test-unit:
     name: Unit Tests
@@ -68,9 +59,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Run unit tests
-        run: |
-          cd core && cargo test
-          cd ../server && cargo test
+        run: cargo test --workspace
 
   test-integration:
     name: Integration Tests
@@ -85,27 +74,27 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: planspec-cli
-          path: cli/target/release/
+          path: target/release/
 
       - name: Download server binary
         uses: actions/download-artifact@v4
         with:
           name: planspec-server
-          path: server/target/release/
+          path: target/release/
 
       - name: Make binaries executable
         run: |
-          chmod +x cli/target/release/planspec
-          chmod +x server/target/release/planspec-server
+          chmod +x target/release/planspec
+          chmod +x target/release/planspec-server
 
       - name: Start server
         run: |
-          server/target/release/planspec-server &
+          target/release/planspec-server &
           sleep 3
-          curl -s http://localhost:8080/health || exit 1
+          curl -s http://localhost:8080/healthz || exit 1
 
       - name: Run integration tests
-        run: cd cli && cargo test --test integration_test -- --test-threads=1
+        run: cargo test -p planspec --test integration_test -- --test-threads=1
 
       - name: Stop server
         if: always()
@@ -122,13 +111,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: planspec-cli
-          path: cli/target/release/
+          path: target/release/
 
       - name: Make CLI executable
-        run: chmod +x cli/target/release/planspec
+        run: chmod +x target/release/planspec
 
       - name: Validate fixture bundle
-        run: cli/target/release/planspec validate -f docs/planspec/fixtures/v0.1.0/bundle.yaml
+        run: target/release/planspec validate -f docs/planspec/fixtures/v0.1.0/bundle.yaml
 
   schema-validation:
     name: Schema Validation
