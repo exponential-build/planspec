@@ -59,7 +59,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Run unit tests
-        run: cargo test --workspace
+        run: |
+          cargo test -p planspec-core
+          cargo test -p planspec-server
 
   test-integration:
     name: Integration Tests
@@ -89,6 +91,8 @@ jobs:
 
       - name: Run integration tests
         run: cargo test -p planspec --test integration_test
+        env:
+          PLANSPEC_SERVER_BIN: ${{ github.workspace }}/target/release/planspec-server
         # Tests spawn their own ephemeral server with in-memory database
 
   validate-fixtures:

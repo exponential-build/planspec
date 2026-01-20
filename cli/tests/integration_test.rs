@@ -2,6 +2,8 @@
 //!
 //! These tests automatically start an ephemeral server with an in-memory database.
 //! Run with: cargo test --test integration_test
+//!
+//! Set PLANSPEC_SERVER_BIN to override the server binary path.
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
@@ -23,11 +25,15 @@ struct TestServer {
 impl TestServer {
     /// Start a new test server on a random port with in-memory database
     fn start() -> Self {
-        // Find the server binary - it should be in the same target directory
-        let server_path = std::path::Path::new(CLI_PATH)
-            .parent()
-            .unwrap()
-            .join("planspec-server");
+        // Find the server binary - check env var first, then look relative to CLI
+        let server_path = if let Ok(path) = std::env::var("PLANSPEC_SERVER_BIN") {
+            std::path::PathBuf::from(path)
+        } else {
+            std::path::Path::new(CLI_PATH)
+                .parent()
+                .unwrap()
+                .join("planspec-server")
+        };
 
         if !server_path.exists() {
             panic!(
