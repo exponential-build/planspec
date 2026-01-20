@@ -43,7 +43,7 @@ enum Commands {
 
     /// Get one or more resources
     Get {
-        /// Resource type (goals, plans, capabilities, bindings, executions)
+        /// Resource type (goals, plans, capabilities, bindings, executions, all)
         resource: String,
 
         /// Resource name (optional, lists all if not specified)

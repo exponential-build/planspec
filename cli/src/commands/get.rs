@@ -18,6 +18,11 @@ pub async fn run(
     let client = Client::new(config)?;
     let resource_type = normalize_resource_type(resource);
 
+    // Special handling for "all" - fetch all resource types
+    if resource_type == "all" {
+        return run_get_all(&client, selector, all_namespaces, output_format).await;
+    }
+
     // Special handling for namespaces
     if resource_type == "namespaces" {
         let result = client.list_namespaces().await?;
@@ -107,6 +112,82 @@ pub async fn run(
     Ok(())
 }
 
+/// Get all resources (goals, plans, executions, capabilities, bindings)
+async fn run_get_all(
+    client: &Client,
+    selector: Option<String>,
+    all_namespaces: bool,
+    output_format: &str,
+) -> Result<()> {
+    // Resource types to fetch (in display order, similar to kubectl)
+    let resource_types = ["goals", "plans", "executions", "capabilities", "bindings"];
+
+    // For JSON/YAML output, collect all resources into a single structure
+    if output_format == "json" || output_format == "yaml" {
+        let mut all_resources: Vec<Value> = Vec::new();
+
+        for resource_type in &resource_types {
+            let result = client
+                .list(resource_type, None, selector.as_deref(), all_namespaces)
+                .await?;
+
+            if let Some(items) = result.get("items").and_then(|i| i.as_array()) {
+                all_resources.extend(items.clone());
+            }
+        }
+
+        let output = serde_json::json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "List",
+            "items": all_resources
+        });
+
+        match output_format {
+            "json" => println!("{}", serde_json::to_string_pretty(&output)?),
+            "yaml" => println!("{}", serde_yaml::to_string(&output)?),
+            _ => unreachable!(),
+        }
+        return Ok(());
+    }
+
+    // Table output: print each resource type separately with headers
+    let mut any_resources = false;
+
+    for resource_type in &resource_types {
+        let result = client
+            .list(resource_type, None, selector.as_deref(), all_namespaces)
+            .await?;
+
+        if let Some(items) = result.get("items").and_then(|i| i.as_array()) {
+            if !items.is_empty() {
+                if any_resources {
+                    println!(); // Blank line between resource types
+                }
+                any_resources = true;
+
+                // Print resource type header (uppercase, like kubectl)
+                let kind = match *resource_type {
+                    "goals" => "GOALS",
+                    "plans" => "PLANS",
+                    "executions" => "EXECUTIONS",
+                    "capabilities" => "CAPABILITIES",
+                    "bindings" => "BINDINGS",
+                    _ => resource_type,
+                };
+                println!("{}:", kind);
+
+                output_table(resource_type, &result, all_namespaces);
+            }
+        }
+    }
+
+    if !any_resources {
+        println!("No resources found");
+    }
+
+    Ok(())
+}
+
 fn normalize_resource_type(resource: &str) -> String {
     match resource.to_lowercase().as_str() {
         "goal" | "goals" => "goals",
@@ -115,6 +196,7 @@ fn normalize_resource_type(resource: &str) -> String {
         "binding" | "bindings" => "bindings",
         "execution" | "executions" => "executions",
         "namespace" | "namespaces" | "ns" => "namespaces",
+        "all" => "all",
         other => other,
     }
     .to_string()

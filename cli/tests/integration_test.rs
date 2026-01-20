@@ -363,6 +363,66 @@ spec:
     }
 
     #[test]
+    fn test_get_all_resources() {
+        // First apply some resources to ensure there's something to get
+        let goal_yaml = r#"
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: test-get-all-goal
+  namespace: test-get-all-ns
+spec:
+  description: "Goal for get all test"
+  acceptanceCriteria:
+    - description: "Criterion"
+  priority: 50
+"#;
+
+        let temp_file = std::env::temp_dir().join("test-get-all.yaml");
+        std::fs::write(&temp_file, goal_yaml).expect("Failed to write temp file");
+        run_cli(&["apply", "-f", temp_file.to_str().unwrap()]);
+
+        // Test get all in specific namespace
+        let output = run_cli(&["get", "all", "-n", "test-get-all-ns"]);
+        assert!(
+            output.status.success(),
+            "Get all should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("GOALS") && stdout.contains("test-get-all-goal"),
+            "Should show goals section with the goal: {}",
+            stdout
+        );
+
+        // Test get all with -A (all namespaces)
+        let output = run_cli(&["get", "all", "-A"]);
+        assert!(
+            output.status.success(),
+            "Get all with -A should succeed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+
+        // Test YAML output
+        let output = run_cli(&["get", "all", "-n", "test-get-all-ns", "-o", "yaml"]);
+        assert!(
+            output.status.success(),
+            "Get all with YAML output should succeed"
+        );
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("kind: List") && stdout.contains("items"),
+            "Should produce YAML list output: {}",
+            &stdout[..stdout.len().min(500)]
+        );
+
+        std::fs::remove_file(temp_file).ok();
+    }
+
+    #[test]
     fn test_yaml_output() {
         // First apply something
         let goal_yaml = r#"
