@@ -127,5 +127,7 @@ jobs:
         run: |
           for schema in schemas/v1alpha1/*.schema.json; do
             echo "Validating $schema..."
-            ajv compile -s "$schema" --spec=draft2020 -c ajv-formats -r "schemas/common/*.schema.json" || exit 1
+            ajv compile -s "$schema" --spec=draft2020 -c ajv-formats \
+              -r "schemas/common/*.schema.json" \
+              -r "schemas/v1alpha1/*.schema.json" || exit 1
           done
