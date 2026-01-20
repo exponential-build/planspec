@@ -152,7 +152,9 @@ impl Validator {
     /// Validate a Plan's graph for cycles and other constraints.
     fn validate_plan_graph(&self, plan: &Plan) -> Result<(), Vec<ValidationError>> {
         if let Some(cycle_node) = plan.spec.graph.detect_cycle() {
-            return Err(vec![ValidationError::CyclicGraph { node_id: cycle_node }]);
+            return Err(vec![ValidationError::CyclicGraph {
+                node_id: cycle_node,
+            }]);
         }
 
         // Validate that edge references exist
@@ -163,9 +165,7 @@ impl Validator {
 
     /// Validate a Plan's graph from JSON.
     fn validate_plan_graph_json(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
-        let graph = value
-            .get("spec")
-            .and_then(|s| s.get("graph"));
+        let graph = value.get("spec").and_then(|s| s.get("graph"));
 
         if let Some(graph_value) = graph {
             let nodes = graph_value
@@ -204,7 +204,8 @@ impl Validator {
             }
 
             // Check for cycles using DFS
-            let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+            let mut adj: std::collections::HashMap<&str, Vec<&str>> =
+                std::collections::HashMap::new();
             for node_id in &nodes {
                 adj.entry(node_id).or_default();
             }
@@ -280,11 +281,13 @@ fn detect_cycle_dfs<'a>(
 }
 
 fn compile_schema(schema_json: &str) -> Result<JSONSchema, ValidationError> {
-    let schema: Value = serde_json::from_str(schema_json)
-        .map_err(|e| ValidationError::SchemaCompilationError(format!("Failed to parse schema: {}", e)))?;
+    let schema: Value = serde_json::from_str(schema_json).map_err(|e| {
+        ValidationError::SchemaCompilationError(format!("Failed to parse schema: {}", e))
+    })?;
 
-    JSONSchema::compile(&schema)
-        .map_err(|e| ValidationError::SchemaCompilationError(format!("Failed to compile schema: {}", e)))
+    JSONSchema::compile(&schema).map_err(|e| {
+        ValidationError::SchemaCompilationError(format!("Failed to compile schema: {}", e))
+    })
 }
 
 /// Check if a string is a valid DNS label (Kubernetes naming convention).

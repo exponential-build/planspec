@@ -59,6 +59,7 @@ fn resource_to_kind(resource: &str) -> &str {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 pub struct ListQuery {
     #[serde(rename = "labelSelector")]
     pub label_selector: Option<String>,
@@ -74,21 +75,17 @@ pub async fn list(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let kind = resource_to_kind(&resource);
 
-    let items = state
-        .store
-        .list(&namespace, kind)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "kind": "Status",
-                    "status": "Failure",
-                    "message": e.to_string(),
-                    "code": 500
-                })),
-            )
-        })?;
+    let items = state.store.list(&namespace, kind).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
 
     let objects: Vec<Value> = items.into_iter().map(|item| item.object).collect();
 
@@ -107,21 +104,17 @@ pub async fn list_all(
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
     let kind = resource_to_kind(&resource);
 
-    let items = state
-        .store
-        .list_all(kind)
-        .await
-        .map_err(|e| {
-            (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "kind": "Status",
-                    "status": "Failure",
-                    "message": e.to_string(),
-                    "code": 500
-                })),
-            )
-        })?;
+    let items = state.store.list_all(kind).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
 
     let objects: Vec<Value> = items.into_iter().map(|item| item.object).collect();
 
@@ -237,17 +230,23 @@ pub async fn create(
         .to_string();
 
     // Check if already exists
-    if let Some(_) = state.store.get(&namespace, kind, &name).await.map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "kind": "Status",
-                "status": "Failure",
-                "message": e.to_string(),
-                "code": 500
-            })),
-        )
-    })? {
+    if state
+        .store
+        .get(&namespace, kind, &name)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "kind": "Status",
+                    "status": "Failure",
+                    "message": e.to_string(),
+                    "code": 500
+                })),
+            )
+        })?
+        .is_some()
+    {
         return Err((
             StatusCode::CONFLICT,
             Json(json!({
@@ -448,7 +447,13 @@ pub async fn update_status(
 
     let (stored, event) = state
         .store
-        .replace(&namespace, kind, &name, updated, resource_version.as_deref())
+        .replace(
+            &namespace,
+            kind,
+            &name,
+            updated,
+            resource_version.as_deref(),
+        )
         .await
         .map_err(|e| {
             (

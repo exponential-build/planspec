@@ -51,7 +51,8 @@ fn output_text(name: &str, graph: &Value) -> Result<()> {
         deps.entry(to.to_string())
             .or_default()
             .push(from.to_string());
-        rdeps.entry(from.to_string())
+        rdeps
+            .entry(from.to_string())
             .or_default()
             .push(to.to_string());
     }
@@ -71,11 +72,7 @@ fn output_text(name: &str, graph: &Value) -> Result<()> {
     // Build node map
     let node_map: HashMap<&str, &Value> = nodes
         .iter()
-        .filter_map(|n| {
-            n.get("id")
-                .and_then(|i| i.as_str())
-                .map(|id| (id, n))
-        })
+        .filter_map(|n| n.get("id").and_then(|i| i.as_str()).map(|id| (id, n)))
         .collect();
 
     // Print tree
@@ -218,12 +215,13 @@ fn output_dot(name: &str, graph: &Value) -> Result<()> {
     for edge in edges {
         let from = edge.get("from").and_then(|f| f.as_str()).unwrap_or("");
         let to = edge.get("to").and_then(|t| t.as_str()).unwrap_or("");
-        let edge_type = edge
-            .get("type")
-            .and_then(|t| t.as_str())
-            .unwrap_or("hard");
+        let edge_type = edge.get("type").and_then(|t| t.as_str()).unwrap_or("hard");
 
-        let style = if edge_type == "soft" { "dashed" } else { "solid" };
+        let style = if edge_type == "soft" {
+            "dashed"
+        } else {
+            "solid"
+        };
 
         println!(
             "  {} -> {} [style={}];",
@@ -268,7 +266,7 @@ fn output_mermaid(name: &str, graph: &Value) -> Result<()> {
         let label = format!("{}: {}", id, truncate(desc, 25));
 
         match kind {
-            "Gate" => println!("    {}{{\"{}\"}}",  mermaid_id, label),
+            "Gate" => println!("    {}{{\"{}\"}}", mermaid_id, label),
             "Group" => println!("    {}[[\"{}\"]]]", mermaid_id, label),
             "External" => println!("    {}[/\"{}\"/]", mermaid_id, label),
             _ => println!("    {}[\"{}\"]", mermaid_id, label),
@@ -281,10 +279,7 @@ fn output_mermaid(name: &str, graph: &Value) -> Result<()> {
     for edge in edges {
         let from = edge.get("from").and_then(|f| f.as_str()).unwrap_or("");
         let to = edge.get("to").and_then(|t| t.as_str()).unwrap_or("");
-        let edge_type = edge
-            .get("type")
-            .and_then(|t| t.as_str())
-            .unwrap_or("hard");
+        let edge_type = edge.get("type").and_then(|t| t.as_str()).unwrap_or("hard");
 
         let from_id = from.replace('-', "_");
         let to_id = to.replace('-', "_");

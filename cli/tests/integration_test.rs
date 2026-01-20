@@ -201,7 +201,13 @@ spec:
         run_cli(&["apply", "-f", temp_file.to_str().unwrap()]);
 
         // Now describe it
-        let output = run_cli(&["describe", "goal", "test-describe-goal", "-n", TEST_NAMESPACE]);
+        let output = run_cli(&[
+            "describe",
+            "goal",
+            "test-describe-goal",
+            "-n",
+            TEST_NAMESPACE,
+        ]);
         assert!(output.status.success(), "Describe should succeed");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -255,7 +261,10 @@ spec:
         }
 
         let output = run_cli(&["get", "goals", "-n", "planspec", "-o", "yaml"]);
-        assert!(output.status.success(), "Get with YAML output should succeed");
+        assert!(
+            output.status.success(),
+            "Get with YAML output should succeed"
+        );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Should be valid YAML (starts with - or apiVersion or empty)

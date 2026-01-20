@@ -25,10 +25,7 @@ impl Client {
     }
 
     fn base_url(&self) -> String {
-        format!(
-            "{}/apis/planspec.io/v1alpha1",
-            self.config.server_url()
-        )
+        format!("{}/apis/planspec.io/v1alpha1", self.config.server_url())
     }
 
     /// List resources of a given type
@@ -68,18 +65,23 @@ impl Client {
             name
         );
 
-        let response = self.http.get(&url).send().await.context("Failed to send request")?;
+        let response = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
         self.handle_response(response).await
     }
 
     /// Create a resource
-    pub async fn create<T: Serialize>(&self, resource: &str, namespace: &str, body: &T) -> Result<Value> {
-        let url = format!(
-            "{}/namespaces/{}/{}",
-            self.base_url(),
-            namespace,
-            resource
-        );
+    pub async fn create<T: Serialize>(
+        &self,
+        resource: &str,
+        namespace: &str,
+        body: &T,
+    ) -> Result<Value> {
+        let url = format!("{}/namespaces/{}/{}", self.base_url(), namespace, resource);
 
         let response = self
             .http
@@ -120,7 +122,12 @@ impl Client {
     }
 
     /// Delete a resource
-    pub async fn delete(&self, resource: &str, name: &str, namespace: Option<&str>) -> Result<Value> {
+    pub async fn delete(
+        &self,
+        resource: &str,
+        name: &str,
+        namespace: Option<&str>,
+    ) -> Result<Value> {
         let default_ns = self.config.namespace();
         let ns = namespace.unwrap_or(&default_ns);
         let url = format!(
@@ -131,7 +138,12 @@ impl Client {
             name
         );
 
-        let response = self.http.delete(&url).send().await.context("Failed to send request")?;
+        let response = self
+            .http
+            .delete(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
         self.handle_response(response).await
     }
 
@@ -169,20 +181,23 @@ impl Client {
     pub async fn get_graph(&self, name: &str, namespace: Option<&str>) -> Result<Value> {
         let default_ns = self.config.namespace();
         let ns = namespace.unwrap_or(&default_ns);
-        let url = format!(
-            "{}/namespaces/{}/plans/{}/graph",
-            self.base_url(),
-            ns,
-            name
-        );
+        let url = format!("{}/namespaces/{}/plans/{}/graph", self.base_url(), ns, name);
 
-        let response = self.http.get(&url).send().await.context("Failed to send request")?;
+        let response = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
         self.handle_response(response).await
     }
 
     async fn handle_response(&self, response: reqwest::Response) -> Result<Value> {
         let status = response.status();
-        let body = response.text().await.context("Failed to read response body")?;
+        let body = response
+            .text()
+            .await
+            .context("Failed to read response body")?;
 
         if status.is_success() {
             serde_json::from_str(&body).context("Failed to parse response JSON")

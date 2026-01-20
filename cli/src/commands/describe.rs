@@ -38,9 +38,15 @@ fn describe_resource(resource_type: &str, resource: &Value) {
     let status = resource.get("status").unwrap_or(&Value::Null);
 
     // Common header
-    let kind = resource.get("kind").and_then(|k| k.as_str()).unwrap_or("Unknown");
+    let kind = resource
+        .get("kind")
+        .and_then(|k| k.as_str())
+        .unwrap_or("Unknown");
     let name = metadata.get("name").and_then(|n| n.as_str()).unwrap_or("");
-    let namespace = metadata.get("namespace").and_then(|n| n.as_str()).unwrap_or("");
+    let namespace = metadata
+        .get("namespace")
+        .and_then(|n| n.as_str())
+        .unwrap_or("");
 
     println!("{}: {}", "Name".bold(), name);
     println!("{}: {}", "Namespace".bold(), namespace);
@@ -208,7 +214,10 @@ fn describe_plan(spec: &Value, status: &Value) {
             for node in nodes {
                 let id = node.get("id").and_then(|i| i.as_str()).unwrap_or("");
                 let kind = node.get("kind").and_then(|k| k.as_str()).unwrap_or("");
-                let desc = node.get("description").and_then(|d| d.as_str()).unwrap_or("");
+                let desc = node
+                    .get("description")
+                    .and_then(|d| d.as_str())
+                    .unwrap_or("");
                 println!("    [{}] {} - {}", kind, id.cyan(), desc);
             }
         }
@@ -261,7 +270,10 @@ fn describe_capability(spec: &Value, status: &Value) {
         for input in inputs {
             let name = input.get("name").and_then(|n| n.as_str()).unwrap_or("");
             let ptype = input.get("type").and_then(|t| t.as_str()).unwrap_or("");
-            let required = input.get("required").and_then(|r| r.as_bool()).unwrap_or(false);
+            let required = input
+                .get("required")
+                .and_then(|r| r.as_bool())
+                .unwrap_or(false);
             let req_str = if required { " (required)" } else { "" };
             println!("    {} [{}]{}", name, ptype, req_str);
         }
@@ -290,7 +302,7 @@ fn describe_binding(spec: &Value, status: &Value) {
     if let Some(rules) = spec.get("rules").and_then(|r| r.as_array()) {
         println!("  {} ({}):", "Rules".bold(), rules.len());
         for (i, rule) in rules.iter().enumerate() {
-            println!("  {}. Rule {}:", "", i + 1);
+            println!("  . Rule {}:", i + 1);
 
             if let Some(selector) = rule.get("selector") {
                 if let Some(cap_ref) = selector.get("capabilityRef") {
@@ -455,7 +467,10 @@ fn describe_context(context: &Value, indent: &str) {
         println!("{}{}:", indent, "Context".bold());
         for item in items {
             let name = item.get("name").and_then(|n| n.as_str());
-            let format = item.get("format").and_then(|f| f.as_str()).unwrap_or("unknown");
+            let format = item
+                .get("format")
+                .and_then(|f| f.as_str())
+                .unwrap_or("unknown");
 
             let header = match name {
                 Some(n) => format!("[{}] {}", format.cyan(), n),

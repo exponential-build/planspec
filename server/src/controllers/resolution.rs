@@ -29,6 +29,7 @@ impl PlanResolver {
     }
 
     /// Run resolution for all Goals in a namespace
+    #[allow(dead_code)]
     pub async fn reconcile_namespace(&self, namespace: &str) -> Result<()> {
         debug!(namespace, "Reconciling goals in namespace");
 
@@ -206,10 +207,7 @@ impl PlanResolver {
                         .and_then(|l| l.as_object());
 
                     match_labels.iter().all(|(k, v)| {
-                        labels
-                            .and_then(|l| l.get(*k))
-                            .and_then(|lv| lv.as_str())
-                            == Some(*v)
+                        labels.and_then(|l| l.get(*k)).and_then(|lv| lv.as_str()) == Some(*v)
                     })
                 })
                 .collect()
@@ -218,10 +216,7 @@ impl PlanResolver {
         };
 
         if filtered_plans.is_empty() {
-            debug!(
-                goal = goal_name,
-                "No plans match selector for goal"
-            );
+            debug!(goal = goal_name, "No plans match selector for goal");
             return Ok(());
         }
 
@@ -240,23 +235,21 @@ impl PlanResolver {
         // Step 4: Within each series, select highest version
         let mut candidates: Vec<&crate::storage::StoredObject> = Vec::new();
         for (_series, series_plans) in by_series {
-            let best = series_plans
-                .into_iter()
-                .max_by(|a, b| {
-                    let v_a = a
-                        .object
-                        .get("spec")
-                        .and_then(|s| s.get("version"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("0");
-                    let v_b = b
-                        .object
-                        .get("spec")
-                        .and_then(|s| s.get("version"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("0");
-                    compare_versions(v_a, v_b)
-                });
+            let best = series_plans.into_iter().max_by(|a, b| {
+                let v_a = a
+                    .object
+                    .get("spec")
+                    .and_then(|s| s.get("version"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("0");
+                let v_b = b
+                    .object
+                    .get("spec")
+                    .and_then(|s| s.get("version"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("0");
+                compare_versions(v_a, v_b)
+            });
             if let Some(p) = best {
                 candidates.push(p);
             }
@@ -433,9 +426,10 @@ fn update_condition(
     });
 
     // Find existing condition of this type
-    if let Some(pos) = conditions.iter().position(|c| {
-        c.get("type").and_then(|t| t.as_str()) == Some(condition_type)
-    }) {
+    if let Some(pos) = conditions
+        .iter()
+        .position(|c| c.get("type").and_then(|t| t.as_str()) == Some(condition_type))
+    {
         // Check if status changed
         let old_status = conditions[pos].get("status").and_then(|s| s.as_str());
         if old_status != Some(status) {
@@ -484,7 +478,10 @@ mod tests {
         assert_eq!(compare_versions("1", "2"), std::cmp::Ordering::Less);
         assert_eq!(compare_versions("10", "2"), std::cmp::Ordering::Greater);
         assert_eq!(compare_versions("1.0", "1.1"), std::cmp::Ordering::Less);
-        assert_eq!(compare_versions("1.1.0", "1.1"), std::cmp::Ordering::Greater);
+        assert_eq!(
+            compare_versions("1.1.0", "1.1"),
+            std::cmp::Ordering::Greater
+        );
         assert_eq!(compare_versions("2.0", "1.9"), std::cmp::Ordering::Greater);
     }
 }

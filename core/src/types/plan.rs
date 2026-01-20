@@ -207,7 +207,9 @@ impl Graph {
     /// Get a topological ordering of nodes, or error if cyclic.
     pub fn topological_order(&self) -> Result<Vec<&Node>, GraphError> {
         if let Some(cycle_node) = self.detect_cycle() {
-            return Err(GraphError::CyclicGraph { node_id: cycle_node });
+            return Err(GraphError::CyclicGraph {
+                node_id: cycle_node,
+            });
         }
 
         let mut result = Vec::new();
@@ -224,11 +226,19 @@ impl Graph {
         }
 
         // Build node lookup
-        let node_map: HashMap<&str, &Node> = self.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
+        let node_map: HashMap<&str, &Node> =
+            self.nodes.iter().map(|n| (n.id.as_str(), n)).collect();
 
         for node in &self.nodes {
             if !visited.contains(node.id.as_str()) {
-                self.topo_visit(&node.id, &adj, &node_map, &mut visited, &mut temp_visited, &mut result)?;
+                self.topo_visit(
+                    &node.id,
+                    &adj,
+                    &node_map,
+                    &mut visited,
+                    &mut temp_visited,
+                    &mut result,
+                )?;
             }
         }
 

@@ -162,18 +162,13 @@ pub struct Condition {
 }
 
 /// ConditionStatus represents the status of a condition.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 pub enum ConditionStatus {
     /// Condition is true.
     True,
     /// Condition is false.
     False,
     /// Condition status is unknown.
+    #[default]
     Unknown,
-}
-
-impl Default for ConditionStatus {
-    fn default() -> Self {
-        Self::Unknown
-    }
 }

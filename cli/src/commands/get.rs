@@ -55,15 +55,21 @@ pub async fn run(
                 match a_series.cmp(b_series) {
                     std::cmp::Ordering::Equal => {
                         // Secondary sort: version descending (numeric if possible)
-                        let a_version = a_spec.get("version").and_then(|v| v.as_str()).unwrap_or("0");
-                        let b_version = b_spec.get("version").and_then(|v| v.as_str()).unwrap_or("0");
+                        let a_version = a_spec
+                            .get("version")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("0");
+                        let b_version = b_spec
+                            .get("version")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("0");
 
                         // Try numeric comparison first
                         let a_num: Result<i64, _> = a_version.parse();
                         let b_num: Result<i64, _> = b_version.parse();
 
                         match (a_num, b_num) {
-                            (Ok(a), Ok(b)) => b.cmp(&a), // Descending
+                            (Ok(a), Ok(b)) => b.cmp(&a),   // Descending
                             _ => b_version.cmp(a_version), // Fall back to string comparison, descending
                         }
                     }
@@ -113,12 +119,12 @@ fn output_table(resource_type: &str, result: &Value, show_namespace: bool) {
     } else {
         // Single item
         match resource_type {
-            "goals" => print_goals(&[result.clone()], show_namespace),
-            "plans" => print_plans(&[result.clone()], show_namespace),
-            "capabilities" => print_capabilities(&[result.clone()], show_namespace),
-            "bindings" => print_bindings(&[result.clone()], show_namespace),
-            "executions" => print_executions(&[result.clone()], show_namespace),
-            _ => print_generic(&[result.clone()], show_namespace),
+            "goals" => print_goals(std::slice::from_ref(result), show_namespace),
+            "plans" => print_plans(std::slice::from_ref(result), show_namespace),
+            "capabilities" => print_capabilities(std::slice::from_ref(result), show_namespace),
+            "bindings" => print_bindings(std::slice::from_ref(result), show_namespace),
+            "executions" => print_executions(std::slice::from_ref(result), show_namespace),
+            _ => print_generic(std::slice::from_ref(result), show_namespace),
         }
     }
 }
@@ -159,9 +165,7 @@ fn print_goals(items: &[Value], show_namespace: bool) {
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string(),
-                phase: colorize_phase(
-                    status.get("phase").and_then(|p| p.as_str()).unwrap_or(""),
-                ),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
                 active_plan: status
                     .get("activePlanRef")
                     .and_then(|r| r.get("name"))
@@ -176,7 +180,9 @@ fn print_goals(items: &[Value], show_namespace: bool) {
     let mut table = Table::new(rows);
     if !show_namespace {
         // Hide namespace column if not needed
-        table.with(tabled::settings::Disable::column(tabled::settings::object::Columns::first()));
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
     }
     println!("{}", table);
 }
@@ -220,9 +226,7 @@ fn print_plans(items: &[Value], show_namespace: bool) {
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string(),
-                phase: colorize_phase(
-                    status.get("phase").and_then(|p| p.as_str()).unwrap_or(""),
-                ),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
                 nodes: status
                     .get("nodeCount")
                     .and_then(|n| n.as_i64())
@@ -244,7 +248,9 @@ fn print_plans(items: &[Value], show_namespace: bool) {
 
     let mut table = Table::new(rows);
     if !show_namespace {
-        table.with(tabled::settings::Disable::column(tabled::settings::object::Columns::first()));
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
     }
     println!("{}", table);
 }
@@ -284,9 +290,7 @@ fn print_capabilities(items: &[Value], show_namespace: bool) {
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string(),
-                phase: colorize_phase(
-                    status.get("phase").and_then(|p| p.as_str()).unwrap_or(""),
-                ),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
                 category: spec
                     .get("category")
                     .and_then(|c| c.as_str())
@@ -298,7 +302,9 @@ fn print_capabilities(items: &[Value], show_namespace: bool) {
 
     let mut table = Table::new(rows);
     if !show_namespace {
-        table.with(tabled::settings::Disable::column(tabled::settings::object::Columns::first()));
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
     }
     println!("{}", table);
 }
@@ -338,9 +344,7 @@ fn print_bindings(items: &[Value], show_namespace: bool) {
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string(),
-                phase: colorize_phase(
-                    status.get("phase").and_then(|p| p.as_str()).unwrap_or(""),
-                ),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
                 rules: spec
                     .get("rules")
                     .and_then(|r| r.as_array())
@@ -352,7 +356,9 @@ fn print_bindings(items: &[Value], show_namespace: bool) {
 
     let mut table = Table::new(rows);
     if !show_namespace {
-        table.with(tabled::settings::Disable::column(tabled::settings::object::Columns::first()));
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
     }
     println!("{}", table);
 }
@@ -394,9 +400,7 @@ fn print_executions(items: &[Value], show_namespace: bool) {
                     .and_then(|n| n.as_str())
                     .unwrap_or("")
                     .to_string(),
-                phase: colorize_phase(
-                    status.get("phase").and_then(|p| p.as_str()).unwrap_or(""),
-                ),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
                 plan: spec
                     .get("planRef")
                     .and_then(|r| r.get("name"))
@@ -410,7 +414,9 @@ fn print_executions(items: &[Value], show_namespace: bool) {
 
     let mut table = Table::new(rows);
     if !show_namespace {
-        table.with(tabled::settings::Disable::column(tabled::settings::object::Columns::first()));
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
     }
     println!("{}", table);
 }
@@ -418,7 +424,10 @@ fn print_executions(items: &[Value], show_namespace: bool) {
 fn print_generic(items: &[Value], _show_namespace: bool) {
     for item in items {
         let metadata = item.get("metadata").unwrap_or(&Value::Null);
-        let kind = item.get("kind").and_then(|k| k.as_str()).unwrap_or("Unknown");
+        let kind = item
+            .get("kind")
+            .and_then(|k| k.as_str())
+            .unwrap_or("Unknown");
         let name = metadata.get("name").and_then(|n| n.as_str()).unwrap_or("");
         let ns = metadata
             .get("namespace")

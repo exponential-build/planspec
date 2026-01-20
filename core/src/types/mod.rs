@@ -1,10 +1,10 @@
 //! Core type definitions for PlanSpec resources.
 
 pub mod api;
-pub mod meta;
-pub mod context;
-pub mod goal;
-pub mod plan;
-pub mod capability;
 pub mod binding;
+pub mod capability;
+pub mod context;
 pub mod execution;
+pub mod goal;
+pub mod meta;
+pub mod plan;

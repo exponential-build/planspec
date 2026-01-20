@@ -125,7 +125,18 @@ async fn main() -> Result<()> {
             selector,
             all_namespaces,
             series,
-        } => commands::get::run(&config, &resource, name, selector, all_namespaces, series, &cli.output).await,
+        } => {
+            commands::get::run(
+                &config,
+                &resource,
+                name,
+                selector,
+                all_namespaces,
+                series,
+                &cli.output,
+            )
+            .await
+        }
         Commands::Describe { resource, name } => {
             commands::describe::run(&config, &resource, &name, &cli.output).await
         }

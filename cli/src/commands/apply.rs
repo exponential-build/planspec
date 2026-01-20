@@ -10,8 +10,8 @@ use crate::client::{Client, Config};
 /// Apply resources from a file
 pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str) -> Result<()> {
     let path = Path::new(file);
-    let content = fs::read_to_string(path)
-        .with_context(|| format!("Failed to read file: {}", file))?;
+    let content =
+        fs::read_to_string(path).with_context(|| format!("Failed to read file: {}", file))?;
 
     // Parse YAML (supports multi-document)
     let resources = parse_yaml_documents(&content)?;
@@ -22,11 +22,14 @@ pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str
     }
 
     // Validate locally first
-    let validator = Validator::new()
-        .map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
+    let validator =
+        Validator::new().map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
     for resource in &resources {
         if let Err(errors) = validator.validate_json(resource) {
-            let kind = resource.get("kind").and_then(|k| k.as_str()).unwrap_or("Unknown");
+            let kind = resource
+                .get("kind")
+                .and_then(|k| k.as_str())
+                .unwrap_or("Unknown");
             let name = resource
                 .get("metadata")
                 .and_then(|m| m.get("name"))
@@ -44,7 +47,10 @@ pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str
     if dry_run {
         println!("{}", "Dry run mode - validation passed".green());
         for resource in &resources {
-            let kind = resource.get("kind").and_then(|k| k.as_str()).unwrap_or("Unknown");
+            let kind = resource
+                .get("kind")
+                .and_then(|k| k.as_str())
+                .unwrap_or("Unknown");
             let name = resource
                 .get("metadata")
                 .and_then(|m| m.get("name"))
@@ -60,7 +66,8 @@ pub async fn run(config: &Config, file: &str, dry_run: bool, output_format: &str
     let default_ns = config.namespace();
 
     // Group resources by their metadata.namespace
-    let mut by_namespace: std::collections::HashMap<String, Vec<Value>> = std::collections::HashMap::new();
+    let mut by_namespace: std::collections::HashMap<String, Vec<Value>> =
+        std::collections::HashMap::new();
     for resource in resources {
         let ns = resource
             .get("metadata")
@@ -103,8 +110,8 @@ fn parse_yaml_documents(content: &str) -> Result<Vec<Value>> {
     let mut resources = Vec::new();
 
     for doc in serde_yaml::Deserializer::from_str(content) {
-        let value: Value = serde::Deserialize::deserialize(doc)
-            .context("Failed to parse YAML document")?;
+        let value: Value =
+            serde::Deserialize::deserialize(doc).context("Failed to parse YAML document")?;
 
         if value.is_null() {
             continue;
