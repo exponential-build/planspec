@@ -177,6 +177,19 @@ impl Client {
         self.handle_response(response).await
     }
 
+    /// List all namespaces
+    pub async fn list_namespaces(&self) -> Result<Value> {
+        let url = format!("{}/namespaces", self.base_url());
+
+        let response = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
+        self.handle_response(response).await
+    }
+
     /// Get a plan's graph
     pub async fn get_graph(&self, name: &str, namespace: Option<&str>) -> Result<Value> {
         let default_ns = self.config.namespace();

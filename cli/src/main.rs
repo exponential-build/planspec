@@ -71,6 +71,15 @@ enum Commands {
         name: String,
     },
 
+    /// Delete a resource
+    Delete {
+        /// Resource type (goal, plan, capability, binding, execution)
+        resource: String,
+
+        /// Resource name
+        name: String,
+    },
+
     /// Validate resources against JSON schema (offline)
     Validate {
         /// File containing resources to validate
@@ -139,6 +148,9 @@ async fn main() -> Result<()> {
         }
         Commands::Describe { resource, name } => {
             commands::describe::run(&config, &resource, &name, &cli.output).await
+        }
+        Commands::Delete { resource, name } => {
+            commands::delete::run(&config, &resource, &name).await
         }
         Commands::Validate { file } => commands::validate::run(&file, &cli.output),
         Commands::Watch { resource, selector } => {

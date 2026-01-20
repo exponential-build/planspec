@@ -18,6 +18,25 @@ pub async fn run(
     let client = Client::new(config)?;
     let resource_type = normalize_resource_type(resource);
 
+    // Special handling for namespaces
+    if resource_type == "namespaces" {
+        let result = client.list_namespaces().await?;
+        return match output_format {
+            "json" => {
+                println!("{}", serde_json::to_string_pretty(&result)?);
+                Ok(())
+            }
+            "yaml" => {
+                println!("{}", serde_yaml::to_string(&result)?);
+                Ok(())
+            }
+            _ => {
+                print_namespaces(&result);
+                Ok(())
+            }
+        };
+    }
+
     let mut result = if let Some(name) = name {
         client.get(&resource_type, &name, None).await?
     } else {
@@ -95,9 +114,44 @@ fn normalize_resource_type(resource: &str) -> String {
         "capability" | "capabilities" => "capabilities",
         "binding" | "bindings" => "bindings",
         "execution" | "executions" => "executions",
+        "namespace" | "namespaces" | "ns" => "namespaces",
         other => other,
     }
     .to_string()
+}
+
+#[derive(Tabled)]
+struct NamespaceRow {
+    #[tabled(rename = "NAME")]
+    name: String,
+}
+
+fn print_namespaces(result: &Value) {
+    if let Some(items) = result.get("items").and_then(|i| i.as_array()) {
+        if items.is_empty() {
+            println!("No namespaces found");
+            return;
+        }
+
+        let rows: Vec<NamespaceRow> = items
+            .iter()
+            .map(|item| {
+                let metadata = item.get("metadata").unwrap_or(&Value::Null);
+                NamespaceRow {
+                    name: metadata
+                        .get("name")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string(),
+                }
+            })
+            .collect();
+
+        let table = Table::new(rows);
+        println!("{}", table);
+    } else {
+        println!("No namespaces found");
+    }
 }
 
 fn output_table(resource_type: &str, result: &Value, show_namespace: bool) {

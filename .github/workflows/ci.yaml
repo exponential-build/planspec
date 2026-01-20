@@ -87,18 +87,9 @@ jobs:
           chmod +x target/release/planspec
           chmod +x target/release/planspec-server
 
-      - name: Start server
-        run: |
-          target/release/planspec-server &
-          sleep 3
-          curl -s http://localhost:8080/healthz || exit 1
-
       - name: Run integration tests
-        run: cargo test -p planspec --test integration_test -- --test-threads=1
-
-      - name: Stop server
-        if: always()
-        run: pkill planspec-server || true
+        run: cargo test -p planspec --test integration_test
+        # Tests spawn their own ephemeral server with in-memory database
 
   validate-fixtures:
     name: Validate Fixtures
