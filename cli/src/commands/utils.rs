@@ -33,10 +33,10 @@ fn scan_directory_internal(path: &Path, recursive: bool, files: &mut Vec<PathBuf
 
 /// Check if a path is a YAML file by extension
 fn is_yaml_file(path: &Path) -> bool {
-    match path.extension().and_then(|e| e.to_str()) {
-        Some("yaml") | Some("yml") => true,
-        _ => false,
-    }
+    matches!(
+        path.extension().and_then(|e| e.to_str()),
+        Some("yaml") | Some("yml")
+    )
 }
 
 /// Input source for commands that can accept file or directory

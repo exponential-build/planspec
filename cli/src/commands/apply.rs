@@ -173,10 +173,7 @@ pub async fn run(
     // Return error if any files had errors
     if !file_errors.is_empty() || !total_errors.is_empty() {
         let total_error_count = file_errors.len() + total_errors.len();
-        anyhow::bail!(
-            "{} error(s) occurred during apply",
-            total_error_count
-        );
+        anyhow::bail!("{} error(s) occurred during apply", total_error_count);
     }
 
     Ok(())
