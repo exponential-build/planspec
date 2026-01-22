@@ -669,7 +669,8 @@ impl Node {
 
     /// Add a capability reference to this node.
     pub fn with_capability(mut self, capability_name: impl Into<String>) -> Self {
-        self.capability_refs.push(ObjectReference::new(capability_name));
+        self.capability_refs
+            .push(ObjectReference::new(capability_name));
         self
     }
 

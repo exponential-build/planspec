@@ -129,8 +129,15 @@ run_job() {
         [ "$(echo "$step_run" | wc -l)" -gt 5 ] && echo "..."
         echo ""
 
-        # Execute the step
-        eval "$step_run"
+        # Execute the step and explicitly check exit status
+        # (set -e is disabled when function is called in if-condition)
+        local exit_code=0
+        eval "$step_run" || exit_code=$?
+
+        if [ "$exit_code" -ne 0 ]; then
+            echo -e "${RED}✗ Step $((i+1)) failed (exit code: $exit_code)${NC}\n"
+            return 1
+        fi
 
         echo -e "${GREEN}✓ Step $((i+1)) passed${NC}\n"
     done
