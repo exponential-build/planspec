@@ -151,9 +151,9 @@ fn describe_goal(spec: &Value, status: &Value) {
         println!("  {}: {}", "Timeout".bold(), timeout);
     }
 
-    if let Some(priority) = spec.get("priority").and_then(|p| p.as_i64()) {
-        println!("  {}: {}", "Priority".bold(), priority);
-    }
+    // Priority defaults to 0 per schema (higher = more urgent)
+    let priority = spec.get("priority").and_then(|p| p.as_i64()).unwrap_or(0);
+    println!("  {}: {}", "Priority".bold(), priority);
 
     if let Some(constraints) = spec.get("constraints").and_then(|c| c.as_object()) {
         println!("  {}:", "Constraints".bold());
@@ -165,8 +165,14 @@ fn describe_goal(spec: &Value, status: &Value) {
     if let Some(criteria) = spec.get("acceptanceCriteria").and_then(|a| a.as_array()) {
         println!("  {}:", "Acceptance Criteria".bold());
         for (i, criterion) in criteria.iter().enumerate() {
-            if let Some(desc) = criterion.get("description").and_then(|d| d.as_str()) {
-                println!("    {}. {}", i + 1, desc);
+            let id = criterion.get("id").and_then(|i| i.as_str());
+            let desc = criterion
+                .get("description")
+                .and_then(|d| d.as_str())
+                .unwrap_or("");
+            match id {
+                Some(id) => println!("    {}. [{}] {}", i + 1, id.cyan(), desc),
+                None => println!("    {}. {}", i + 1, desc),
             }
         }
     }

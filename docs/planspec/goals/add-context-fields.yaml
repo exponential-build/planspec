@@ -16,5 +16,5 @@ spec:
     - description: "Server accepts and stores context without modification"
     - description: "CLI displays context in describe output"
     - description: "Documentation explains context vs knowledge-graph split"
-  timeout: "3d"
+  timeout: "72h"
   priority: 80

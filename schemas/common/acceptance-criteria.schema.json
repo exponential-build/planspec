@@ -77,8 +77,8 @@
           },
           "timeout": {
             "type": "string",
-            "description": "Maximum execution time (Go duration format)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+            "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
           }
         },
         "required": ["command"]
@@ -117,8 +117,8 @@
           },
           "timeout": {
             "type": "string",
-            "description": "Maximum wait time (Go duration format)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+            "description": "Maximum wait time (Go duration format: ns, us/µs, ms, s, m, h)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
           }
         },
         "required": ["url"]
@@ -156,8 +156,8 @@
           },
           "timeout": {
             "type": "string",
-            "description": "Maximum execution time (Go duration format)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+            "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
           }
         },
         "required": ["command"]
@@ -201,8 +201,8 @@
           },
           "timeout": {
             "type": "string",
-            "description": "Maximum wait time (Go duration format)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+            "description": "Maximum wait time (Go duration format: ns, us/µs, ms, s, m, h)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
           }
         },
         "required": ["webhookUrl"]

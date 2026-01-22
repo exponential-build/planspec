@@ -36,7 +36,7 @@ spec:
       uris:
         - doc://prd/authentication.md
         - doc://design/session-management.md
-  timeout: "3d"
+  timeout: "72h"
   priority: 50
 ---
 apiVersion: planspec.io/v1alpha1

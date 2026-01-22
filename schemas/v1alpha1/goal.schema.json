@@ -57,8 +57,8 @@
         },
         "timeout": {
           "type": "string",
-          "description": "Maximum time allowed for goal completion (Go duration format)",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          "description": "Maximum time allowed for goal completion (Go duration format: ns, us/µs, ms, s, m, h)",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
         },
         "priority": {
           "type": "integer",
@@ -82,6 +82,13 @@
       "description": "A criterion that defines success",
       "required": ["description"],
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable identifier for referencing this criterion (e.g., in gates, conditions, test results)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
         "description": {
           "type": "string",
           "description": "Human-readable description of the criterion",
@@ -128,13 +135,36 @@
         },
         "values": {
           "type": "array",
-          "description": "Values to match (for In/NotIn)",
+          "description": "Values to match (required for In/NotIn, forbidden for Exists/DoesNotExist)",
           "items": {
             "type": "string"
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "operator": { "enum": ["In", "NotIn"] } },
+            "required": ["operator"]
+          },
+          "then": {
+            "required": ["values"],
+            "properties": {
+              "values": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "operator": { "enum": ["Exists", "DoesNotExist"] } },
+            "required": ["operator"]
+          },
+          "then": {
+            "not": { "required": ["values"] }
+          }
+        }
+      ]
     },
     "goalStatus": {
       "type": "object",
@@ -147,7 +177,7 @@
         },
         "activePlanRef": {
           "$ref": "../common/reference.schema.json",
-          "description": "Reference to the currently active plan"
+          "description": "Reference to the selected plan. Set when phase transitions to Ready; persists through Executing until a terminal state (Succeeded, Failed, Cancelled)"
         },
         "conditions": {
           "type": "array",

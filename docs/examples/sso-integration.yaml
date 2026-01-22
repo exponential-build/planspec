@@ -28,7 +28,7 @@ spec:
   planSelector:
     matchLabels:
       planspec.io/goal: enable-google-sso
-  timeout: "7d"
+  timeout: "168h"
   priority: 10
 ---
 apiVersion: planspec.io/v1alpha1

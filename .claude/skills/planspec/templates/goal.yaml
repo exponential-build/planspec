@@ -17,5 +17,5 @@ spec:
   #     format: markdown
   #     content: |
   #       Additional context here...
-  # timeout: "7d"
+  # timeout: "168h"
   priority: ${PRIORITY:-100}

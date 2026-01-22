@@ -21,5 +21,5 @@ spec:
         Currently `planspec get plans` shows empty PHASE and NODES columns.
         The server should populate these on create/replace, and the CLI
         should support filtering by series to make versioning visible.
-  timeout: "2d"
+  timeout: "48h"
   priority: 80

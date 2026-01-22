@@ -26,5 +26,5 @@ spec:
         - Reusable validation logic
         - Foundation for other Rust-based implementations
         - Better developer experience for ecosystem builders
-  timeout: "3d"
+  timeout: "72h"
   priority: 90

@@ -22,5 +22,5 @@ spec:
     - description: "PUT /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name} requires resourceVersion"
     - description: "PUT /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/{name}/status updates only status"
     - description: "GET /apis/planspec.io/v1alpha1/namespaces/{ns}/{resource}/watch streams events"
-  timeout: "7d"
+  timeout: "168h"
   priority: 100

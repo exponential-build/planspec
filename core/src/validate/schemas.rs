@@ -53,15 +53,38 @@ pub const GOAL_SCHEMA: &str = r#"
             "type": "object",
             "required": ["description"],
             "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              },
               "description": { "type": "string" }
             }
           }
         },
         "planSelector": {
-          "type": "object"
+          "type": "object",
+          "properties": {
+            "matchLabels": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            },
+            "matchExpressions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["key", "operator"],
+                "properties": {
+                  "key": { "type": "string" },
+                  "operator": { "type": "string", "enum": ["In", "NotIn", "Exists", "DoesNotExist"] },
+                  "values": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            }
+          }
         },
         "timeout": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
         },
         "priority": {
           "type": "integer",

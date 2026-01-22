@@ -20,7 +20,7 @@ spec:
     - description: "Logout button is visible on the user profile page"
     - description: "Clicking the button clears the session and redirects to login"
     - description: "Unit tests pass"
-  timeout: "1d"
+  timeout: "24h"
   priority: 5
 ---
 apiVersion: planspec.io/v1alpha1

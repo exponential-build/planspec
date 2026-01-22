@@ -90,6 +90,11 @@ impl Validator {
             // Validate naming conventions
             self.validate_naming_conventions(value)?;
 
+            // For Goals, validate labelSelector semantics
+            if kind == "Goal" {
+                self.validate_label_selector(value)?;
+            }
+
             // For Plans, also check for cycles and node IDs
             if kind == "Plan" {
                 self.validate_plan_graph_json(value)?;
@@ -121,6 +126,54 @@ impl Validator {
                         field: "metadata.namespace".to_string(),
                         value: namespace.to_string(),
                     }]);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate labelSelector semantics (In/NotIn require values, Exists/DoesNotExist forbid values).
+    fn validate_label_selector(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
+        let expressions = value
+            .get("spec")
+            .and_then(|s| s.get("planSelector"))
+            .and_then(|ps| ps.get("matchExpressions"))
+            .and_then(|me| me.as_array());
+
+        if let Some(expressions) = expressions {
+            for (i, expr) in expressions.iter().enumerate() {
+                let operator = expr.get("operator").and_then(|o| o.as_str()).unwrap_or("");
+                let has_values = expr
+                    .get("values")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| !arr.is_empty())
+                    .unwrap_or(false);
+
+                match operator {
+                    "In" | "NotIn" => {
+                        if !has_values {
+                            return Err(vec![ValidationError::SchemaValidation {
+                                path: format!("/spec/planSelector/matchExpressions/{}", i),
+                                message: format!(
+                                    "operator '{}' requires non-empty 'values' array",
+                                    operator
+                                ),
+                            }]);
+                        }
+                    }
+                    "Exists" | "DoesNotExist" => {
+                        if has_values {
+                            return Err(vec![ValidationError::SchemaValidation {
+                                path: format!("/spec/planSelector/matchExpressions/{}", i),
+                                message: format!(
+                                    "operator '{}' must not have 'values' array",
+                                    operator
+                                ),
+                            }]);
+                        }
+                    }
+                    _ => {}
                 }
             }
         }
