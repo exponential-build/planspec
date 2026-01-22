@@ -53,21 +53,6 @@
         }
       },
       "additionalProperties": false
-    },
-    "anyResource": {
-      "description": "Any valid PlanSpec resource",
-      "type": "object",
-      "required": ["apiVersion", "kind"],
-      "properties": {
-        "apiVersion": {
-          "type": "string",
-          "pattern": "^planspec\\.io/v[a-z0-9]+$"
-        },
-        "kind": {
-          "type": "string",
-          "enum": ["Goal", "Plan", "Capability", "Binding", "Execution", "List"]
-        }
-      }
     }
   }
 }

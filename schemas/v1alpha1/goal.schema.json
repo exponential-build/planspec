@@ -56,9 +56,8 @@
           "description": "Selector to match plans by labels"
         },
         "timeout": {
-          "type": "string",
-          "description": "Maximum time allowed for goal completion (Go duration format: ns, us/µs, ms, s, m, h)",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/duration" }],
+          "description": "Maximum time allowed for goal completion"
         },
         "priority": {
           "type": "integer",
@@ -105,8 +104,14 @@
         "matchLabels": {
           "type": "object",
           "description": "Equality-based label matching",
+          "propertyNames": {
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+            "maxLength": 253
+          },
           "additionalProperties": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
+            "maxLength": 63
           }
         },
         "matchExpressions": {
@@ -126,7 +131,9 @@
       "properties": {
         "key": {
           "type": "string",
-          "description": "Label key"
+          "description": "Label key",
+          "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+          "maxLength": 253
         },
         "operator": {
           "type": "string",
@@ -137,7 +144,9 @@
           "type": "array",
           "description": "Values to match (required for In/NotIn, forbidden for Exists/DoesNotExist)",
           "items": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
+            "maxLength": 63
           }
         }
       },

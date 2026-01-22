@@ -124,9 +124,9 @@
           "description": "Element type for array parameters (requires type: array)",
           "enum": ["string", "number", "boolean", "object"]
         },
-        "properties": {
+        "objectProperties": {
           "type": "object",
-          "description": "Property definitions for object parameters (requires type: object)",
+          "description": "Property definitions for object parameters (requires type: object). Named to avoid collision with JSON Schema 'properties' keyword.",
           "additionalProperties": {
             "$ref": "#/$defs/parameterDefinition"
           }
@@ -142,7 +142,7 @@
           "then": { "properties": { "type": { "const": "array" } } }
         },
         {
-          "if": { "required": ["properties"] },
+          "if": { "required": ["objectProperties"] },
           "then": { "properties": { "type": { "const": "object" } } }
         }
       ],

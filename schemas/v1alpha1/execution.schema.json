@@ -48,6 +48,10 @@
         "nodeBindings": {
           "type": "object",
           "description": "Per-node binding overrides. Key is node ID (must match graph.nodes[].id), value is Binding reference.",
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "maxLength": 63
+          },
           "additionalProperties": {
             "$ref": "../common/reference.schema.json"
           },
@@ -125,6 +129,10 @@
         "nodeStatuses": {
           "type": "object",
           "description": "Status per node ID. Keys must match graph.nodes[].id from the referenced Plan. Controllers may omit nodes not yet materialized or include all nodes with phase 'Pending'.",
+          "propertyNames": {
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "maxLength": 63
+          },
           "additionalProperties": {
             "$ref": "#/$defs/nodeStatus"
           }

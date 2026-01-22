@@ -1,0 +1,13 @@
+{
+  "$id": "https://planspec.io/schemas/common/types.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Common Types",
+  "description": "Shared type definitions for PlanSpec schemas",
+  "$defs": {
+    "duration": {
+      "type": "string",
+      "description": "Duration in Go format (e.g., '30s', '5m', '1h30m'). Valid units: ns, us/µs, ms, s, m, h. No day unit.",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    }
+  }
+}

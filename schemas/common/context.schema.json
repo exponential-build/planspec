@@ -61,5 +61,6 @@
       "required": ["uris"],
       "not": { "required": ["content"] }
     }
-  ]
+  ],
+  "additionalProperties": false
 }

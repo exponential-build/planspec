@@ -76,9 +76,8 @@
             "default": 0
           },
           "timeout": {
-            "type": "string",
-            "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
+            "description": "Maximum execution time"
           }
         },
         "required": ["command"]
@@ -116,9 +115,8 @@
             "maxLength": 1024
           },
           "timeout": {
-            "type": "string",
-            "description": "Maximum wait time (Go duration format: ns, us/µs, ms, s, m, h)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
+            "description": "Maximum wait time"
           }
         },
         "required": ["url"]
@@ -155,9 +153,8 @@
             "maxLength": 1024
           },
           "timeout": {
-            "type": "string",
-            "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
+            "description": "Maximum execution time"
           }
         },
         "required": ["command"]
@@ -200,14 +197,13 @@
             "additionalProperties": false
           },
           "timeout": {
-            "type": "string",
-            "description": "Maximum wait time (Go duration format: ns, us/µs, ms, s, m, h)",
-            "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
+            "description": "Maximum wait time"
           }
         },
         "required": ["webhookUrl"]
       }
     }
   ],
-  "additionalProperties": true
+  "unevaluatedProperties": false
 }
