@@ -714,6 +714,9 @@ pub const EXECUTION_SCHEMA: &str = r#"
           "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Cancelled"]
         },
         "runId": { "type": "string", "maxLength": 128 },
+        "reason": { "type": "string", "maxLength": 256 },
+        "message": { "type": "string", "maxLength": 4096 },
+        "queuedTime": { "type": "string", "format": "date-time" },
         "startTime": { "type": "string", "format": "date-time" },
         "completionTime": { "type": "string", "format": "date-time" },
         "lastPhaseTransitionTime": { "type": "string", "format": "date-time" },

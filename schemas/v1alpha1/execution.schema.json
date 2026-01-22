@@ -47,10 +47,11 @@
         },
         "nodeBindings": {
           "type": "object",
-          "description": "Per-node binding overrides. Key is node ID, value is Binding reference.",
+          "description": "Per-node binding overrides. Key is node ID (must match graph.nodes[].id), value is Binding reference.",
           "additionalProperties": {
             "$ref": "../common/reference.schema.json"
-          }
+          },
+          "default": {}
         },
         "runtimeRef": {
           "$ref": "../common/reference.schema.json",
@@ -83,12 +84,27 @@
         },
         "runId": {
           "type": "string",
-          "description": "Unique identifier for this run (useful if re-run semantics added later)",
+          "description": "Unique identifier for this run. Set once at creation; defaults to metadata.uid if not specified. One Execution = one run.",
           "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "description": "Machine-readable reason for current phase (e.g., 'ValidationFailed', 'GateRejected', 'NodeFailed', 'CancelledByUser')",
+          "maxLength": 256
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable message explaining current phase or failure",
+          "maxLength": 4096
+        },
+        "queuedTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when controller acknowledged the execution. Queue latency = queuedTime - metadata.creationTimestamp.",
+          "format": "date-time"
         },
         "startTime": {
           "type": "string",
-          "description": "RFC3339 timestamp when execution started",
+          "description": "RFC3339 timestamp when execution started running (first node began). Startup latency = startTime - queuedTime.",
           "format": "date-time"
         },
         "completionTime": {
@@ -103,12 +119,12 @@
         },
         "specHash": {
           "type": "string",
-          "description": "Hash of spec at creation time. Controllers can refuse to run if spec changes.",
+          "description": "Hash of spec at creation time. Controllers can refuse to run if spec changes. Format: algorithm:digest (e.g., 'sha256:abc123...').",
           "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
         },
         "nodeStatuses": {
           "type": "object",
-          "description": "Status per node ID",
+          "description": "Status per node ID. Keys must match graph.nodes[].id from the referenced Plan. Controllers may omit nodes not yet materialized or include all nodes with phase 'Pending'.",
           "additionalProperties": {
             "$ref": "#/$defs/nodeStatus"
           }
@@ -118,14 +134,16 @@
           "description": "Artifacts produced during execution",
           "items": {
             "$ref": "#/$defs/artifact"
-          }
+          },
+          "default": []
         },
         "conditions": {
           "type": "array",
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "default": []
         },
         "observedGeneration": {
           "type": "integer",
@@ -166,7 +184,7 @@
         },
         "outputs": {
           "type": "object",
-          "description": "Outputs produced by the node",
+          "description": "Outputs produced by the node. Use reverse-domain keys (e.g., 'io.planspec.*') or 'x-' prefix for experimental/custom keys.",
           "additionalProperties": true
         },
         "message": {
@@ -200,7 +218,7 @@
         },
         "path": {
           "type": "string",
-          "description": "Path to the artifact (required for file/directory types)",
+          "description": "Path to the artifact relative to the execution artifact root (controller-defined). Required for file/directory types.",
           "maxLength": 4096
         },
         "url": {
