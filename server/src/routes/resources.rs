@@ -158,6 +158,34 @@ fn populate_binding_status(body: &mut Value, generation: i64) {
     }
 }
 
+/// Populate Gate status with initial phase
+fn populate_gate_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Pending");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Ready",
+            "status": "False",
+            "reason": "GateCreated",
+            "message": "Gate created, awaiting activation",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
 /// Populate resource status based on kind
 fn populate_resource_status(body: &mut Value, kind: &str, generation: i64) {
     match kind {
@@ -166,6 +194,7 @@ fn populate_resource_status(body: &mut Value, kind: &str, generation: i64) {
         "Execution" => populate_execution_status(body, generation),
         "Capability" => populate_capability_status(body, generation),
         "Binding" => populate_binding_status(body, generation),
+        "Gate" => populate_gate_status(body, generation),
         _ => {}
     }
 }
@@ -178,6 +207,7 @@ fn resource_to_kind(resource: &str) -> &str {
         "capabilities" => "Capability",
         "bindings" => "Binding",
         "executions" => "Execution",
+        "gates" => "Gate",
         _ => resource,
     }
 }

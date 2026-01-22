@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::types::binding::Binding;
 use crate::types::capability::Capability;
 use crate::types::execution::Execution;
+use crate::types::gate::Gate;
 use crate::types::goal::Goal;
 use crate::types::meta::ObjectMeta;
 use crate::types::plan::Plan;
@@ -26,6 +27,8 @@ pub enum Resource {
     Binding(Binding),
     /// An Execution resource.
     Execution(Execution),
+    /// A Gate resource.
+    Gate(Gate),
 }
 
 impl Resource {
@@ -37,6 +40,7 @@ impl Resource {
             Resource::Capability(_) => "Capability",
             Resource::Binding(_) => "Binding",
             Resource::Execution(_) => "Execution",
+            Resource::Gate(_) => "Gate",
         }
     }
 
@@ -48,6 +52,7 @@ impl Resource {
             Resource::Capability(r) => &r.metadata,
             Resource::Binding(r) => &r.metadata,
             Resource::Execution(r) => &r.metadata,
+            Resource::Gate(r) => &r.metadata,
         }
     }
 
@@ -59,6 +64,7 @@ impl Resource {
             Resource::Capability(r) => &mut r.metadata,
             Resource::Binding(r) => &mut r.metadata,
             Resource::Execution(r) => &mut r.metadata,
+            Resource::Gate(r) => &mut r.metadata,
         }
     }
 
@@ -80,6 +86,7 @@ impl Resource {
             Resource::Capability(r) => &r.api_version,
             Resource::Binding(r) => &r.api_version,
             Resource::Execution(r) => &r.api_version,
+            Resource::Gate(r) => &r.api_version,
         }
     }
 }
@@ -111,6 +118,12 @@ impl From<Binding> for Resource {
 impl From<Execution> for Resource {
     fn from(execution: Execution) -> Self {
         Resource::Execution(execution)
+    }
+}
+
+impl From<Gate> for Resource {
+    fn from(gate: Gate) -> Self {
+        Resource::Gate(gate)
     }
 }
 
@@ -148,6 +161,11 @@ impl TryFrom<Value> for Resource {
                 let execution: Execution = serde_json::from_value(value)
                     .map_err(|e| ResourceParseError::DeserializationError(e.to_string()))?;
                 Ok(Resource::Execution(execution))
+            }
+            "Gate" => {
+                let gate: Gate = serde_json::from_value(value)
+                    .map_err(|e| ResourceParseError::DeserializationError(e.to_string()))?;
+                Ok(Resource::Gate(gate))
             }
             _ => Err(ResourceParseError::UnknownKind(kind.to_string())),
         }

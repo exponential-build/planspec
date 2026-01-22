@@ -15,6 +15,7 @@ pub struct Validator {
     capability_schema: JSONSchema,
     binding_schema: JSONSchema,
     execution_schema: JSONSchema,
+    gate_schema: JSONSchema,
 }
 
 impl Validator {
@@ -26,6 +27,7 @@ impl Validator {
             capability_schema: compile_schema(schemas::CAPABILITY_SCHEMA)?,
             binding_schema: compile_schema(schemas::BINDING_SCHEMA)?,
             execution_schema: compile_schema(schemas::EXECUTION_SCHEMA)?,
+            gate_schema: compile_schema(schemas::GATE_SCHEMA)?,
         })
     }
 
@@ -57,6 +59,7 @@ impl Validator {
             "Capability" => &self.capability_schema,
             "Binding" => &self.binding_schema,
             "Execution" => &self.execution_schema,
+            "Gate" => &self.gate_schema,
             _ => return Err(vec![ValidationError::UnknownKind(kind.to_string())]),
         };
 

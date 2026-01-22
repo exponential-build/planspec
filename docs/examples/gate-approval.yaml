@@ -1,0 +1,30 @@
+# Example: Simple approval gate
+# This gate requires one approver to proceed
+---
+apiVersion: planspec.io/v1alpha1
+kind: Gate
+metadata:
+  name: production-deploy-gate
+  namespace: default
+  labels:
+    environment: production
+    team: platform
+spec:
+  gateType: approval
+  targetRef:
+    kind: Execution
+    name: deploy-to-production
+    nodeId: deploy-step
+  description: |
+    Approval required before deploying to production.
+    Please verify:
+    - All tests pass
+    - Security scan is clean
+    - Performance benchmarks meet SLA
+  reviewers:
+    - tech-lead@example.com
+    - ops-team@example.com
+  requiredApprovers: 1
+  context:
+    deploymentTarget: production
+    prNumber: "123"

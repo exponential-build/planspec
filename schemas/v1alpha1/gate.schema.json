@@ -1,0 +1,277 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/gate.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Gate",
+  "description": "An explicit approval checkpoint that blocks plan execution until approved or rejected. Reviewers may be humans, policy engines, or other automated systems.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Gate"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/gateSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/gateStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "gateSpec": {
+      "type": "object",
+      "description": "Specification of the gate",
+      "required": ["gateType", "targetRef"],
+      "properties": {
+        "gateType": {
+          "type": "string",
+          "description": "Type of approval gate",
+          "enum": ["approval", "review", "sign-off"]
+        },
+        "targetRef": {
+          "$ref": "#/$defs/targetRef"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of what this gate approves",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "reviewers": {
+          "type": "array",
+          "description": "List of authorized reviewers (user IDs, emails, team names, or service account identifiers). Future versions may add structured 'subjects' field.",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          }
+        },
+        "requiredApprovers": {
+          "type": "integer",
+          "description": "Number of distinct approvals required (defaults to 1)",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 1
+        },
+        "context": {
+          "type": "object",
+          "description": "Arbitrary context data to display to reviewers",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "targetRef": {
+      "type": "object",
+      "description": "Reference to what this gate is gating. Follows K8s ObjectReference conventions.",
+      "required": ["kind", "name"],
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "description": "API version of the target resource (e.g., 'planspec.io/v1alpha1')",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind of the target resource (e.g., 'Execution', 'Plan', 'Artifact')",
+          "pattern": "^[A-Z][a-zA-Z0-9]*$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the target resource",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the target resource (defaults to gate's namespace)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "minLength": 1,
+          "maxLength": 63
+        },
+        "uid": {
+          "type": "string",
+          "description": "UID of the target resource for strong references (survives renames). Opaque string, not necessarily a UUID.",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "nodeId": {
+          "type": "string",
+          "description": "ID of a specific node within the target Plan/Execution graph",
+          "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gateStatus": {
+      "type": "object",
+      "description": "Status of the gate",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current lifecycle phase: Pending (created, not active), Waiting (active, awaiting decision), or terminal (Approved/Rejected)",
+          "enum": ["Pending", "Waiting", "Approved", "Rejected"]
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          }
+        },
+        "reviewHistory": {
+          "type": "array",
+          "description": "History of review actions for audit trail",
+          "items": {
+            "$ref": "#/$defs/reviewAction"
+          }
+        },
+        "resolution": {
+          "$ref": "#/$defs/resolution",
+          "description": "Final resolution details (required when phase is terminal)"
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The spec generation observed by the controller",
+          "minimum": 0
+        },
+        "decidedGeneration": {
+          "type": "integer",
+          "description": "The spec generation the final resolution applies to (required when resolution exists)",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": { "required": ["resolution"] },
+          "then": { "required": ["decidedGeneration", "phase"] }
+        },
+        {
+          "if": { "required": ["decidedGeneration"] },
+          "then": { "required": ["resolution"] }
+        },
+        {
+          "if": {
+            "properties": { "phase": { "enum": ["Approved", "Rejected"] } },
+            "required": ["phase"]
+          },
+          "then": {
+            "required": ["resolution", "decidedGeneration"]
+          }
+        },
+        {
+          "if": {
+            "required": ["resolution"],
+            "properties": {
+              "resolution": {
+                "properties": { "outcome": { "const": "approved" } },
+                "required": ["outcome"]
+              }
+            }
+          },
+          "then": {
+            "required": ["phase", "decidedGeneration"],
+            "properties": { "phase": { "const": "Approved" } }
+          }
+        },
+        {
+          "if": {
+            "required": ["resolution"],
+            "properties": {
+              "resolution": {
+                "properties": { "outcome": { "const": "rejected" } },
+                "required": ["outcome"]
+              }
+            }
+          },
+          "then": {
+            "required": ["phase", "decidedGeneration"],
+            "properties": { "phase": { "const": "Rejected" } }
+          }
+        }
+      ]
+    },
+    "reviewAction": {
+      "type": "object",
+      "description": "A single review action in the audit trail",
+      "required": ["reviewer", "action", "timestamp"],
+      "properties": {
+        "reviewer": {
+          "type": "string",
+          "description": "Identifier of the reviewer (user, team, or service account)",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "action": {
+          "type": "string",
+          "description": "The action taken",
+          "enum": ["approve", "reject", "comment"]
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "RFC3339 timestamp of when the action was taken",
+          "format": "date-time"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional comment explaining the action",
+          "maxLength": 4096
+        },
+        "targetGeneration": {
+          "type": "integer",
+          "description": "The spec generation this action was taken against (for detecting stale approvals)",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "resolution": {
+      "type": "object",
+      "description": "Final resolution of the gate",
+      "required": ["outcome", "timestamp"],
+      "properties": {
+        "outcome": {
+          "type": "string",
+          "description": "The final outcome",
+          "enum": ["approved", "rejected"]
+        },
+        "actors": {
+          "type": "array",
+          "description": "Identifiers of reviewers who contributed to this outcome",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          },
+          "minItems": 1
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "RFC3339 timestamp of final resolution",
+          "format": "date-time"
+        },
+        "comment": {
+          "type": "string",
+          "description": "Optional summary comment for the resolution",
+          "maxLength": 4096
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

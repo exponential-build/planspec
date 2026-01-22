@@ -15,10 +15,11 @@ This document formally defines the primitives, semantics, and behaviors of PlanS
 4. [Capability](#capability)
 5. [Binding](#binding)
 6. [Execution](#execution)
-7. [Context Attachments](#context-attachments)
-8. [Graph Views](#graph-views)
-9. [Deletion and Cleanup Semantics](#deletion-and-cleanup-semantics)
-10. [Conventions](#conventions)
+7. [Gate](#gate)
+8. [Context Attachments](#context-attachments)
+9. [Graph Views](#graph-views)
+10. [Deletion and Cleanup Semantics](#deletion-and-cleanup-semantics)
+11. [Conventions](#conventions)
 
 ---
 
@@ -287,9 +288,11 @@ status:
 | `id` | string | Yes | Unique identifier within the plan |
 | `kind` | NodeKind | Yes | Type of node |
 | `description` | string | Yes | Human-readable description |
-| `capabilityRef` | ObjectReference | No | Required capability |
+| `capabilityRef` | ObjectReference | No | Required capability (for Task nodes) |
+| `gateRef` | ObjectReference | No | Reference to Gate resource (for Gate nodes) |
 | `inputs` | map[string]any | No | Input values |
 | `outputs` | []string | No | Expected output names |
+| `acceptanceCriteria` | []AcceptanceCriteria | No | Machine-verifiable completion conditions (for Task nodes) |
 | `timeout` | duration | No | Maximum execution time |
 | `retries` | integer | No | Number of retry attempts |
 | `when` | string | No | Condition expression for conditional execution |
@@ -299,9 +302,38 @@ status:
 | Kind | Description |
 |------|-------------|
 | `Task` | A concrete unit of work to be executed |
-| `Gate` | A checkpoint requiring approval or validation |
+| `Gate` | A checkpoint requiring approval or validation (references a Gate resource) |
 | `Group` | A container for sub-nodes (future) |
 | `External` | Work performed outside PlanSpec (future) |
+
+### AcceptanceCriteria (for Task nodes)
+
+Task nodes MAY specify machine-verifiable completion conditions via `acceptanceCriteria`. Each criterion has a `type` field that determines its structure.
+
+| Type | Description |
+|------|-------------|
+| `artifact_exists` | Check file/path existence with optional content matching |
+| `test_passes` | Run test commands and check exit codes |
+| `endpoint_responds` | Validate HTTP endpoints (status, response patterns) |
+| `command_succeeds` | Run arbitrary commands with expected exit codes |
+| `custom` | External validation via webhooks |
+
+**Common fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Criterion type |
+| `name` | string | Yes | Human-readable name |
+| `description` | string | No | Detailed description |
+| `required` | boolean | No | If true, failure blocks completion. Default: true |
+
+**Type-specific fields:**
+
+- `artifact_exists`: `path` (required), `contentMatch` (optional regex)
+- `test_passes`: `command` (required), `expectedExitCode` (default: 0)
+- `endpoint_responds`: `url` (required), `method`, `expectedStatus`, `responseMatch`
+- `command_succeeds`: `command` (required), `expectedExitCode` (default: 0)
+- `custom`: `webhook` (required URL), `payload` (optional)
 
 ### Edge
 
@@ -635,6 +667,157 @@ status:
 - `Pending` is the brief window between API acceptance and controller pickup
 - No separate `execute` verb needed in v0
 - **Future**: subresource `POST /executions/{name}/start` for explicit trigger if needed
+
+---
+
+## Gate
+
+A **Gate** is an explicit approval checkpoint that blocks plan execution until approved or rejected. Gates provide auditable approval workflows and support future policy-based automation.
+
+### Scope
+
+**Namespaced**: Gates belong to the same namespace as the resources they gate.
+
+### Design Decisions
+
+- **Gates are standalone resources**—not embedded in Plans, enabling reuse and independent lifecycle/audit
+- **`targetRef` is required**—every gate must specify what it's gating (prevents orphaned gates)
+- **Resolution binds to spec generation**—`decidedGeneration` ensures approvals apply to a specific spec version
+- **No timeout in v1alpha1**—gates block indefinitely until explicitly resolved
+- **Language is "explicit approval" not "human-in-the-loop"**—supports future policy-based automation
+
+### Schema
+
+```yaml
+apiVersion: planspec.io/v1alpha1
+kind: Gate
+metadata:
+  name: <gate-name>
+  namespace: <namespace>
+spec:
+  gateType: <GateType>
+  targetRef: <TargetRef>
+  description: <string>
+  reviewers: <[]string>
+  requiredApprovers: <integer>
+  context: <map[string]any>
+status:
+  phase: <GatePhase>
+  reviewHistory: <[]ReviewAction>
+  resolution: <Resolution>
+  decidedGeneration: <integer>
+  conditions: <[]Condition>
+  observedGeneration: <integer>
+```
+
+### Spec Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `gateType` | GateType | Yes | Type of approval gate |
+| `targetRef` | TargetRef | Yes | Reference to what this gate is gating |
+| `description` | string | No | Human-readable description of what this gate approves |
+| `reviewers` | []string | No | Authorized reviewers (users, teams, or service accounts) |
+| `requiredApprovers` | integer | No | Number of distinct approvals required. Default: 1 |
+| `context` | map[string]any | No | Arbitrary data to display to reviewers |
+
+### GateType
+
+| Type | Description |
+|------|-------------|
+| `approval` | Simple approval checkpoint |
+| `review` | Code or design review |
+| `sign-off` | Formal sign-off (e.g., for compliance) |
+
+### TargetRef
+
+Reference to what this gate is gating. Follows K8s ObjectReference conventions.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `apiVersion` | string | No | API version of the target resource |
+| `kind` | string | Yes | Kind of target (e.g., "Execution", "Plan") |
+| `name` | string | Yes | Name of the target resource |
+| `namespace` | string | No | Namespace (defaults to gate's namespace) |
+| `uid` | string | No | UID for strong references (survives renames) |
+| `nodeId` | string | No | Specific node within a Plan/Execution graph |
+
+### Status Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `phase` | GatePhase | Current lifecycle phase |
+| `reviewHistory` | []ReviewAction | Audit trail of all review actions |
+| `resolution` | Resolution | Final resolution details (required when terminal) |
+| `decidedGeneration` | integer | Spec generation the resolution applies to |
+| `conditions` | []Condition | Detailed conditions |
+| `observedGeneration` | integer | Generation observed by controller |
+
+### GatePhase
+
+| Phase | Description |
+|-------|-------------|
+| `Pending` | Gate created but not yet activated by controller |
+| `Waiting` | Active, awaiting resolution |
+| `Approved` | Approved, execution can proceed |
+| `Rejected` | Rejected, execution should fail/halt |
+
+### ReviewAction
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `reviewer` | string | Yes | Identifier of the reviewer |
+| `action` | string | Yes | Action taken: "approve", "reject", "comment" |
+| `timestamp` | datetime | Yes | When the action was taken |
+| `comment` | string | No | Comment explaining the action |
+| `targetGeneration` | integer | No | Spec generation this action was taken against |
+
+### Resolution
+
+Required when phase is terminal (`Approved` or `Rejected`).
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `outcome` | string | Yes | Final outcome: "approved" or "rejected" |
+| `actors` | []string | Yes | Reviewers who contributed to this outcome |
+| `timestamp` | datetime | Yes | When resolution was finalized |
+| `comment` | string | No | Summary comment for the resolution |
+
+### Schema Invariants
+
+The following invariants are enforced via JSON Schema `allOf`/`if-then` rules:
+
+1. **`resolution` ⇔ `decidedGeneration`**: If either exists, both must exist
+2. **Terminal phase requires resolution**: If `phase` is `Approved` or `Rejected`, `resolution` and `decidedGeneration` must be present
+3. **Outcome matches phase**: `resolution.outcome = "approved"` ⇒ `phase = "Approved"` (and vice versa for rejected)
+
+### Lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Pending
+    Pending --> Waiting: activated
+    Waiting --> Approved: approved
+    Waiting --> Rejected: rejected
+    Approved --> [*]
+    Rejected --> [*]
+```
+
+### Usage with Plans
+
+Gates can be referenced from Plan nodes via `gateRef`:
+
+```yaml
+nodes:
+  - id: approval-checkpoint
+    kind: Gate
+    description: "Requires approval before deployment"
+    gateRef:
+      name: production-deploy-gate
+      namespace: default
+```
+
+When an Execution reaches a gate node, it transitions the Gate to `Waiting` and blocks until the Gate is `Approved` or `Rejected`.
 
 ---
 

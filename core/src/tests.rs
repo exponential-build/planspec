@@ -64,6 +64,38 @@ mod serialization {
     }
 
     #[test]
+    fn gate_round_trip() {
+        let gate = Gate::new("my-gate", "default")
+            .with_gate_type(GateType::Approval)
+            .with_target_ref(TargetRef::execution("my-execution").with_node_id("deploy"))
+            .with_description("Test approval gate")
+            .with_reviewer("admin@example.com")
+            .with_required_approvers(1);
+
+        let json = serde_json::to_string(&gate).unwrap();
+        let parsed: Gate = serde_json::from_str(&json).unwrap();
+        assert_eq!(gate, parsed);
+    }
+
+    #[test]
+    fn acceptance_criteria_round_trip() {
+        let criteria = AcceptanceCriteria::ArtifactExists {
+            name: "Output exists".to_string(),
+            description: Some("Check output file".to_string()),
+            required: true,
+            path: "/tmp/output.txt".to_string(),
+            content_match: Some("success".to_string()),
+        };
+
+        let json = serde_json::to_string(&criteria).unwrap();
+        let parsed: AcceptanceCriteria = serde_json::from_str(&json).unwrap();
+        assert_eq!(criteria, parsed);
+
+        // Verify the type tag is present
+        assert!(json.contains("\"type\":\"artifact_exists\""));
+    }
+
+    #[test]
     fn resource_enum_round_trip() {
         let goal = Goal::new("my-goal", "default").with_description("Test");
         let resource = Resource::Goal(goal.clone());
@@ -274,6 +306,143 @@ mod validation {
             .iter()
             .any(|e| matches!(e, ValidationError::InvalidEdgeReference { .. })));
     }
+
+    #[test]
+    fn valid_gate_passes() {
+        let validator = Validator::new().unwrap();
+        let gate = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Gate",
+            "metadata": {
+                "name": "approval-gate",
+                "namespace": "default"
+            },
+            "spec": {
+                "gateType": "approval",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution",
+                    "nodeId": "deploy"
+                },
+                "description": "Requires approval before proceeding",
+                "reviewers": ["admin@example.com"],
+                "requiredApprovers": 1
+            }
+        });
+
+        assert!(validator.validate_json(&gate).is_ok());
+    }
+
+    #[test]
+    fn gate_with_invalid_type_fails() {
+        let validator = Validator::new().unwrap();
+        let gate = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Gate",
+            "metadata": {
+                "name": "approval-gate",
+                "namespace": "default"
+            },
+            "spec": {
+                "gateType": "invalid-type",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution"
+                },
+                "description": "Should fail validation"
+            }
+        });
+
+        let result = validator.validate_json(&gate);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn plan_with_acceptance_criteria_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with acceptance criteria",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "Task with criteria",
+                            "acceptanceCriteria": [
+                                {
+                                    "type": "artifact_exists",
+                                    "name": "Output file exists",
+                                    "path": "/tmp/output.txt",
+                                    "required": true
+                                },
+                                {
+                                    "type": "test_passes",
+                                    "name": "Unit tests pass",
+                                    "command": "cargo",
+                                    "args": ["test"],
+                                    "expectedExitCode": 0
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn plan_with_gate_ref_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with gate node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "First task"
+                        },
+                        {
+                            "id": "approval",
+                            "kind": "Gate",
+                            "description": "Approval checkpoint",
+                            "gateRef": {
+                                "name": "my-gate",
+                                "namespace": "default"
+                            }
+                        },
+                        {
+                            "id": "task-2",
+                            "kind": "Task",
+                            "description": "Second task"
+                        }
+                    ],
+                    "edges": [
+                        { "from": "task-1", "to": "approval" },
+                        { "from": "approval", "to": "task-2" }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
 }
 
 mod graph {
@@ -449,7 +618,7 @@ mod builders {
 
         assert_eq!(node.id, "my-task");
         assert_eq!(node.kind, NodeKind::Task);
-        assert_eq!(node.description, "Do the thing");
+        assert_eq!(node.description, Some("Do the thing".to_string()));
         assert_eq!(node.capability_ref.unwrap().name, "code-gen");
         assert_eq!(node.when, Some("always".to_string()));
     }

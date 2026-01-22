@@ -1,0 +1,213 @@
+{
+  "$id": "https://planspec.io/schemas/common/acceptance-criteria.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AcceptanceCriteria",
+  "description": "Machine-verifiable acceptance criteria for Task nodes",
+  "type": "object",
+  "required": ["type", "name"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "description": "Type of acceptance criterion",
+      "enum": ["artifact_exists", "test_passes", "endpoint_responds", "command_succeeds", "custom"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this criterion",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what this criterion validates",
+      "maxLength": 1024
+    },
+    "required": {
+      "type": "boolean",
+      "description": "Whether this criterion must pass for task completion (true) or is advisory (false)",
+      "default": true
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "type": { "const": "artifact_exists" } }
+      },
+      "then": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "File or directory path to check",
+            "minLength": 1,
+            "maxLength": 4096
+          },
+          "contentMatch": {
+            "type": "string",
+            "description": "Optional regex pattern that must match file content",
+            "maxLength": 1024
+          }
+        },
+        "required": ["path"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "test_passes" } }
+      },
+      "then": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Command to run (e.g., 'cargo', 'pytest', 'npm')",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "args": {
+            "type": "array",
+            "description": "Arguments to pass to the command",
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "expectedExitCode": {
+            "type": "integer",
+            "description": "Expected exit code (default: 0)",
+            "default": 0
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Maximum execution time (Go duration format)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          }
+        },
+        "required": ["command"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "endpoint_responds" } }
+      },
+      "then": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "URL to check",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "method": {
+            "type": "string",
+            "description": "HTTP method",
+            "enum": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"],
+            "default": "GET"
+          },
+          "expectedStatus": {
+            "type": "integer",
+            "description": "Expected HTTP status code",
+            "minimum": 100,
+            "maximum": 599,
+            "default": 200
+          },
+          "bodyMatch": {
+            "type": "string",
+            "description": "Optional regex pattern that must match response body",
+            "maxLength": 1024
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Maximum wait time (Go duration format)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          }
+        },
+        "required": ["url"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "command_succeeds" } }
+      },
+      "then": {
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Command to run",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "args": {
+            "type": "array",
+            "description": "Arguments to pass to the command",
+            "items": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          },
+          "expectedExitCode": {
+            "type": "integer",
+            "description": "Expected exit code (default: 0)",
+            "default": 0
+          },
+          "outputMatch": {
+            "type": "string",
+            "description": "Optional regex pattern that must match stdout",
+            "maxLength": 1024
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Maximum execution time (Go duration format)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          }
+        },
+        "required": ["command"]
+      }
+    },
+    {
+      "if": {
+        "properties": { "type": { "const": "custom" } }
+      },
+      "then": {
+        "properties": {
+          "webhookUrl": {
+            "type": "string",
+            "description": "URL to call for validation",
+            "format": "uri",
+            "minLength": 1,
+            "maxLength": 2048
+          },
+          "payload": {
+            "type": "object",
+            "description": "JSON payload template to send",
+            "additionalProperties": true
+          },
+          "expectedResponse": {
+            "type": "object",
+            "description": "Expected fields in the response",
+            "properties": {
+              "statusCode": {
+                "type": "integer",
+                "description": "Expected HTTP status code",
+                "minimum": 100,
+                "maximum": 599
+              },
+              "bodyMatch": {
+                "type": "string",
+                "description": "Regex pattern for response body",
+                "maxLength": 1024
+              }
+            },
+            "additionalProperties": false
+          },
+          "timeout": {
+            "type": "string",
+            "description": "Maximum wait time (Go duration format)",
+            "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          }
+        },
+        "required": ["webhookUrl"]
+      }
+    }
+  ],
+  "additionalProperties": true
+}

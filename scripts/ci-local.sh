@@ -69,10 +69,10 @@ get_job_name() {
 should_skip_job() {
     local job="$1"
 
-    # For local testing, we can run test-integration and validate-fixtures
+    # For local testing, we can run test-integration and validate-specs
     # if we build first
     case "$job" in
-        test-integration|validate-fixtures)
+        test-integration|validate-specs)
             # Check if binaries exist
             if [ ! -f "target/release/planspec" ] || [ ! -f "target/release/planspec-server" ]; then
                 echo "skip-needs-build"

@@ -1,0 +1,83 @@
+# Goal: Gate Resource and Task Acceptance Criteria
+# Features:
+#   1. Gate as first-class resource with lifecycle management
+#   2. Structured acceptance criteria for Task node validation
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: schema-gate-and-acceptance
+  namespace: planspec
+  labels:
+    component: schema
+    priority: high
+spec:
+  description: |
+    Add Gate as a first-class resource and structured acceptance criteria for Task nodes,
+    enabling explicit approval workflows and machine-verifiable task completion.
+
+  objectives:
+    - id: gate-resource
+      description: |
+        Implement Gate as a standalone Kubernetes-style resource (Pattern A) that can be
+        referenced by gate nodes in Plans. Gates represent approval checkpoints that block
+        plan execution until explicitly approved or rejected.
+      acceptanceCriteria:
+        - Gate resource has spec with gateType, description, reviewers, timeout, and requiredApprovers
+        - Gate resource has status with phase, conditions, reviewHistory, and resolution
+        - Gate lifecycle: Pending -> Waiting -> Approved/Rejected/ChangesRequested/Expired
+        - Gate nodes in Plan.spec.graph reference Gates via gateRef (name + namespace)
+        - Gate status tracks reviewer actions with timestamps and comments
+        - Timeout support with automatic expiration transition
+        - JSON Schema validates Gate resource structure
+
+    - id: task-acceptance-criteria
+      description: |
+        Add structured validation rules to Task nodes that define machine-verifiable
+        acceptance criteria. Three layers of validation: objective (machine-checkable),
+        behavioral (custom validation), and human (gate-based approval).
+      acceptanceCriteria:
+        - Task nodes support optional acceptanceCriteria array in spec
+        - Supported criteria types: artifact_exists, test_passes, endpoint_responds, command_succeeds, custom
+        - artifact_exists checks for file/path existence with optional content validation
+        - test_passes runs test commands and checks exit codes
+        - endpoint_responds validates HTTP endpoints (status, response body patterns)
+        - command_succeeds runs arbitrary commands with expected exit codes
+        - custom allows external validation webhooks
+        - Criteria can be marked as required (blocking) or advisory
+        - JSON Schema validates acceptance criteria structure
+
+  context:
+    - name: design-notes
+      format: markdown
+      content: |
+        ## Design Decisions
+
+        ### Gate Resource (Pattern A)
+        - Gates are standalone resources, not embedded in Plans
+        - Allows reuse of gate definitions across multiple plans
+        - Enables independent lifecycle management and audit trails
+        - Gate nodes reference Gates via gateRef, similar to how Tasks reference Capabilities
+        - Status tracks full review history for compliance/audit requirements
+
+        ### Gate Lifecycle States
+        - **Pending**: Gate created but not yet active in any execution
+        - **Waiting**: Execution reached gate node, awaiting resolution
+        - **Approved**: Reviewer(s) approved, execution can proceed
+        - **Rejected**: Reviewer(s) rejected, execution should fail/halt
+        - **ChangesRequested**: Reviewer requested changes, may re-review after updates
+        - **Expired**: Timeout reached without sufficient approvals
+
+        ### Acceptance Criteria Layers
+        1. **Objective (machine)**: Deterministic checks that can be automated
+           - artifact_exists, test_passes, endpoint_responds, command_succeeds
+        2. **Behavioral (custom)**: Domain-specific validation via webhooks
+           - Allows integration with external quality gates, security scanners, etc.
+        3. **Explicit (gate)**: Approval checkpoints requiring explicit pass/reject decision
+           - Links to Gate resources for full audit trail
+           - v1 focuses on human reviewers; model supports future policy-based automation
+
+        ### Validation Timing
+        - Acceptance criteria are evaluated when a Task transitions to "completed"
+        - All required criteria must pass for the Task to be considered done
+        - Advisory criteria failures are logged but don't block completion
