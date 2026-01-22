@@ -95,8 +95,8 @@ jobs:
           PLANSPEC_SERVER_BIN: ${{ github.workspace }}/target/release/planspec-server
         # Tests spawn their own ephemeral server with in-memory database
 
-  validate-fixtures:
-    name: Validate Fixtures
+  validate-specs:
+    name: Validate Specs
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -111,8 +111,8 @@ jobs:
       - name: Make CLI executable
         run: chmod +x target/release/planspec
 
-      - name: Validate fixture bundle
-        run: target/release/planspec validate -f docs/planspec/fixtures/v0.1.0/bundle.yaml
+      - name: Validate PlanSpec resources
+        run: target/release/planspec validate -d docs/planspec -R
 
   schema-validation:
     name: Schema Validation
