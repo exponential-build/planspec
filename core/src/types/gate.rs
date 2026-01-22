@@ -201,21 +201,16 @@ impl TargetRef {
 }
 
 /// GateType represents the type of approval gate.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum GateType {
     /// Simple approval checkpoint.
+    #[default]
     Approval,
     /// Code or design review.
     Review,
     /// Formal sign-off (e.g., for compliance).
     SignOff,
-}
-
-impl Default for GateType {
-    fn default() -> Self {
-        Self::Approval
-    }
 }
 
 /// GateStatus represents the current state of a Gate.
