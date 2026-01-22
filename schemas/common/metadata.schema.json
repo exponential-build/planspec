@@ -8,14 +8,14 @@
   "properties": {
     "name": {
       "type": "string",
-      "description": "Unique identifier within the namespace. Must be DNS-subdomain format.",
+      "description": "Unique identifier within the namespace. Must be DNS label format: lowercase alphanumeric, may contain hyphens, max 63 chars.",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
       "minLength": 1,
-      "maxLength": 253
+      "maxLength": 63
     },
     "namespace": {
       "type": "string",
-      "description": "Namespace for resource isolation",
+      "description": "Namespace for resource isolation. Must be DNS label format.",
       "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
       "minLength": 1,
       "maxLength": 63
@@ -43,11 +43,34 @@
       "format": "date-time",
       "readOnly": true
     },
+    "deletionTimestamp": {
+      "type": "string",
+      "description": "RFC3339 timestamp of when the resource was requested for deletion. Set by server when delete is called. Clients MUST NOT set this field.",
+      "format": "date-time",
+      "readOnly": true
+    },
+    "deletionGracePeriodSeconds": {
+      "type": "integer",
+      "description": "Number of seconds before the resource should be deleted. Set by server when deletion is scheduled; absent when not pending deletion. Clients MUST NOT set this field.",
+      "minimum": 0,
+      "readOnly": true
+    },
+    "finalizers": {
+      "type": "array",
+      "description": "Qualified names of finalizers that must complete before the resource can be deleted. Prevents premature garbage collection.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+        "maxLength": 253
+      }
+    },
     "labels": {
       "type": "object",
       "description": "Key-value pairs for selection and organization",
       "additionalProperties": {
         "type": "string",
+        "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
         "maxLength": 63
       },
       "propertyNames": {
@@ -59,7 +82,8 @@
       "type": "object",
       "description": "Key-value pairs for tooling and extensions",
       "additionalProperties": {
-        "type": "string"
+        "type": "string",
+        "maxLength": 65536
       },
       "propertyNames": {
         "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",

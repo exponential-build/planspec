@@ -20,11 +20,13 @@ pub const GOAL_SCHEMA: &str = r#"
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "labels": {
           "type": "object",
@@ -132,11 +134,13 @@ pub const PLAN_SCHEMA: &str = r#"
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "labels": {
           "type": "object",
@@ -474,11 +478,13 @@ pub const GATE_SCHEMA: &str = r#"
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "labels": {
           "type": "object",
@@ -581,11 +587,13 @@ pub const EXECUTION_SCHEMA: &str = r#"
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "ownerReferences": {
           "type": "array",
