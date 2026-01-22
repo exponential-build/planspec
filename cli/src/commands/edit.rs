@@ -43,12 +43,12 @@ pub async fn run(
     let editable = strip_server_fields(&original);
 
     // 3. Convert to YAML for editing
-    let original_yaml = serde_yaml::to_string(&editable)
-        .context("Failed to serialize resource to YAML")?;
+    let original_yaml =
+        serde_yaml::to_string(&editable).context("Failed to serialize resource to YAML")?;
 
     // 4. Create temp file and write content
-    let mut temp_file = NamedTempFile::with_suffix(".yaml")
-        .context("Failed to create temp file")?;
+    let mut temp_file =
+        NamedTempFile::with_suffix(".yaml").context("Failed to create temp file")?;
     temp_file
         .write_all(original_yaml.as_bytes())
         .context("Failed to write to temp file")?;
@@ -73,8 +73,8 @@ pub async fn run(
         }
 
         // Read edited content
-        let edited_yaml = fs::read_to_string(temp_file.path())
-            .context("Failed to read edited file")?;
+        let edited_yaml =
+            fs::read_to_string(temp_file.path()).context("Failed to read edited file")?;
 
         // Check if content changed
         if edited_yaml.trim() == original_yaml.trim() {
@@ -96,8 +96,8 @@ pub async fn run(
         };
 
         // 7. Validate locally
-        let validator = Validator::new()
-            .map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
+        let validator =
+            Validator::new().map_err(|e| anyhow::anyhow!("Failed to create validator: {}", e))?;
 
         if let Err(errors) = validator.validate_json(&edited) {
             eprintln!("{} Validation failed:", "✗".red());
@@ -143,18 +143,16 @@ pub async fn run(
                             "unchanged" => "unchanged".blue(),
                             _ => action.normal(),
                         };
-                        println!(
-                            "{}/{} {}",
-                            resource_type,
-                            name,
-                            action_colored
-                        );
+                        println!("{}/{} {}", resource_type, name, action_colored);
                     }
                 }
                 if let Some(errors) = result.get("errors").and_then(|e| e.as_array()) {
                     if !errors.is_empty() {
                         for error in errors {
-                            let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                            let msg = error
+                                .get("message")
+                                .and_then(|m| m.as_str())
+                                .unwrap_or("Unknown error");
                             eprintln!("{} {}", "✗".red(), msg);
                         }
                         if prompt_retry()? {
@@ -215,7 +213,9 @@ fn restore_server_fields(edited: &mut Value, original: &Value) {
     if let (Some(edited_obj), Some(original_obj)) = (edited.as_object_mut(), original.as_object()) {
         // Restore metadata fields needed for concurrency control
         if let (Some(edited_meta), Some(original_meta)) = (
-            edited_obj.get_mut("metadata").and_then(|m| m.as_object_mut()),
+            edited_obj
+                .get_mut("metadata")
+                .and_then(|m| m.as_object_mut()),
             original_obj.get("metadata").and_then(|m| m.as_object()),
         ) {
             // Copy resourceVersion for optimistic concurrency

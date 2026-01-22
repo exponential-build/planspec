@@ -45,9 +45,7 @@ pub async fn run(
         // Single resource delete
         run_single_delete(&client, &resource, &name).await
     } else {
-        anyhow::bail!(
-            "Either specify <resource> <name> or use --file/-f or --directory/-d"
-        )
+        anyhow::bail!("Either specify <resource> <name> or use --file/-f or --directory/-d")
     }
 }
 
@@ -126,10 +124,7 @@ async fn run_batch_delete(
 
             if name == "<unnamed>" {
                 error_count += 1;
-                errors.push(format!(
-                    "{}: {} missing metadata.name",
-                    file_display, kind
-                ));
+                errors.push(format!("{}: {} missing metadata.name", file_display, kind));
                 continue;
             }
 
@@ -145,11 +140,7 @@ async fn run_batch_delete(
                     match client.delete_namespace(name).await {
                         Ok(_) => {
                             deleted_count += 1;
-                            println!(
-                                "namespace \"{}\" {}",
-                                name,
-                                "deleted".green()
-                            );
+                            println!("namespace \"{}\" {}", name, "deleted".green());
                         }
                         Err(e) => {
                             // Ignore "not found" errors for idempotent delete
@@ -162,10 +153,7 @@ async fn run_batch_delete(
                                 );
                             } else {
                                 error_count += 1;
-                                errors.push(format!(
-                                    "namespace/{}: {}",
-                                    name, e
-                                ));
+                                errors.push(format!("namespace/{}: {}", name, e));
                             }
                         }
                     }

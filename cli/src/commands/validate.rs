@@ -123,7 +123,10 @@ pub fn run(
         .iter()
         .map(|f| f.resources.iter().filter(|r| !r.valid).count())
         .sum();
-    let file_errors: usize = all_results.iter().filter(|f| f.file_error.is_some()).count();
+    let file_errors: usize = all_results
+        .iter()
+        .filter(|f| f.file_error.is_some())
+        .count();
 
     if all_valid {
         println!(
