@@ -104,6 +104,8 @@ spec:
         kind: Gate
         description: "Human review: does it meet acceptance criteria?"
         when: "manualApproval"
+        gateRef:
+          name: review-gate
 
     edges:
       - from: project-setup

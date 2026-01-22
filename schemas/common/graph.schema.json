@@ -2,7 +2,7 @@
   "$id": "https://planspec.io/schemas/common/graph.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Graph",
-  "description": "DAG structure for Plan nodes and edges",
+  "description": "DAG structure for Plan nodes and edges. Edges are the canonical dependency representation; dependsOn on nodes is convenience sugar normalized by controllers.",
   "type": "object",
   "required": ["nodes"],
   "properties": {
@@ -16,7 +16,7 @@
     },
     "edges": {
       "type": "array",
-      "description": "Edges connecting nodes",
+      "description": "Edges connecting nodes (canonical dependency representation)",
       "items": {
         "$ref": "#/$defs/edge"
       },
@@ -25,17 +25,20 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "node": {
+    "nodeId": {
+      "type": "string",
+      "description": "Node identifier (DNS label format)",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "nodeBase": {
       "type": "object",
-      "description": "A node in the plan DAG",
-      "required": ["id", "kind"],
+      "description": "Base properties common to all node kinds",
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Unique identifier within the plan",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "$ref": "#/$defs/nodeId",
+          "description": "Unique identifier within the plan"
         },
         "kind": {
           "type": "string",
@@ -54,26 +57,71 @@
           "minLength": 1,
           "maxLength": 1024
         },
-        "capabilityRef": {
-          "$ref": "reference.schema.json",
-          "description": "Reference to the required capability"
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments for this node",
+          "items": {
+            "$ref": "context.schema.json"
+          }
+        },
+        "dependsOn": {
+          "type": "array",
+          "description": "Convenience: node IDs this node depends on. Normalized to edges by controller.",
+          "items": {
+            "$ref": "#/$defs/nodeId"
+          }
+        }
+      }
+    },
+    "node": {
+      "description": "A node in the plan DAG. Shape varies by kind.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" }
+      ],
+      "oneOf": [
+        { "$ref": "#/$defs/taskNode" },
+        { "$ref": "#/$defs/gateNode" },
+        { "$ref": "#/$defs/groupNode" },
+        { "$ref": "#/$defs/externalNode" }
+      ]
+    },
+    "taskNode": {
+      "type": "object",
+      "description": "A task node representing work to be executed",
+      "required": ["id", "kind"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "Task" },
+        "name": { "type": "string", "maxLength": 253 },
+        "description": { "type": "string", "maxLength": 1024 },
+        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
+        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
+        "capabilityRefs": {
+          "type": "array",
+          "description": "References to capabilities required for this task",
+          "items": {
+            "$ref": "reference.schema.json"
+          }
         },
         "inputs": {
           "type": "object",
-          "description": "Input values for this node",
+          "description": "Input values for this task. Keys starting with _ are reserved.",
           "additionalProperties": true
         },
         "outputs": {
           "type": "array",
-          "description": "Expected output names",
+          "description": "Expected output names (must be unique)",
           "items": {
-            "type": "string"
-          }
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "uniqueItems": true
         },
         "timeout": {
           "type": "string",
-          "description": "Maximum execution time (Go duration format: 1h30m, 24h, 7d)",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ms|s|m|h|d))+$"
+          "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
         },
         "retries": {
           "type": "integer",
@@ -84,86 +132,143 @@
         },
         "when": {
           "type": "string",
-          "description": "Condition expression for conditional execution",
+          "description": "Condition expression for conditional execution (CEL-like, evaluated against node context)",
           "maxLength": 1024
-        },
-        "context": {
-          "type": "array",
-          "description": "Contextual attachments for this node (notes, code pointers, structured data)",
-          "items": {
-            "$ref": "context.schema.json"
-          }
-        },
-        "gateRef": {
-          "$ref": "reference.schema.json",
-          "description": "Reference to a Gate resource (required for Gate nodes)"
         },
         "acceptanceCriteria": {
           "type": "array",
-          "description": "Machine-verifiable acceptance criteria (for Task nodes)",
+          "description": "Machine-verifiable acceptance criteria for this task",
           "items": {
             "$ref": "acceptance-criteria.schema.json"
           }
         },
-        "capabilities": {
-          "type": "array",
-          "description": "List of capability names required for this node",
-          "items": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 253
-          }
-        },
         "estimatedEffort": {
           "type": "string",
-          "description": "Estimated effort level",
+          "description": "Estimated effort level for planning purposes",
           "enum": ["small", "medium", "large", "xlarge"]
-        },
-        "dependsOn": {
+        }
+      },
+      "additionalProperties": false
+    },
+    "gateNode": {
+      "type": "object",
+      "description": "A gate node representing an approval/review checkpoint",
+      "required": ["id", "kind", "gateRef"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "Gate" },
+        "name": { "type": "string", "maxLength": 253 },
+        "description": { "type": "string", "maxLength": 1024 },
+        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
+        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
+        "gateRef": {
+          "$ref": "reference.schema.json",
+          "description": "Reference to the Gate resource defining approval requirements"
+        }
+      },
+      "additionalProperties": false
+    },
+    "groupNode": {
+      "type": "object",
+      "description": "A group node representing a logical grouping of other nodes",
+      "required": ["id", "kind", "children"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "Group" },
+        "name": { "type": "string", "maxLength": 253 },
+        "description": { "type": "string", "maxLength": 1024 },
+        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
+        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
+        "children": {
           "type": "array",
-          "description": "List of node IDs this node depends on (alternative to edges)",
+          "description": "Node IDs that belong to this group",
           "items": {
-            "type": "string",
-            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-            "minLength": 1,
-            "maxLength": 63
-          }
+            "$ref": "#/$defs/nodeId"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "mode": {
+          "type": "string",
+          "description": "Execution hint for children within the group",
+          "enum": ["parallel", "sequence"],
+          "default": "parallel"
+        }
+      },
+      "additionalProperties": false
+    },
+    "externalNode": {
+      "type": "object",
+      "description": "An external node representing a dependency on an external system or process",
+      "required": ["id", "kind", "externalRef"],
+      "properties": {
+        "id": { "$ref": "#/$defs/nodeId" },
+        "kind": { "const": "External" },
+        "name": { "type": "string", "maxLength": 253 },
+        "description": { "type": "string", "maxLength": 1024 },
+        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
+        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
+        "externalRef": {
+          "type": "object",
+          "description": "Reference to the external system or process",
+          "properties": {
+            "type": {
+              "type": "string",
+              "description": "Type of external reference",
+              "enum": ["uri", "resource", "webhook"]
+            },
+            "uri": {
+              "type": "string",
+              "description": "URI of the external system (for type: uri)",
+              "format": "uri"
+            },
+            "resourceRef": {
+              "$ref": "reference.schema.json",
+              "description": "Reference to a PlanSpec resource (for type: resource)"
+            },
+            "webhookUrl": {
+              "type": "string",
+              "description": "Webhook URL to poll or call (for type: webhook)",
+              "format": "uri"
+            }
+          },
+          "required": ["type"],
+          "additionalProperties": false
+        },
+        "pollInterval": {
+          "type": "string",
+          "description": "How often to check external status (Go duration format)",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Maximum time to wait for external completion",
+          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
         }
       },
       "additionalProperties": false
     },
     "edge": {
       "type": "object",
-      "description": "An edge connecting two nodes",
+      "description": "An edge connecting two nodes (from must complete before to starts)",
       "required": ["from", "to"],
       "properties": {
         "from": {
-          "type": "string",
-          "description": "Source node ID",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "$ref": "#/$defs/nodeId",
+          "description": "Source node ID"
         },
         "to": {
-          "type": "string",
-          "description": "Target node ID",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "$ref": "#/$defs/nodeId",
+          "description": "Target node ID"
         },
         "type": {
           "type": "string",
-          "description": "Type of dependency. Defaults to 'hard' in v0.",
+          "description": "Dependency type. 'hard' blocks execution, 'soft' is advisory.",
           "enum": ["hard", "soft"],
           "default": "hard"
         }
       },
       "additionalProperties": false
-    },
-    "nodeKind": {
-      "type": "string",
-      "description": "Type of node",
-      "enum": ["Task", "Gate", "Group", "External"]
     }
   }
 }

@@ -54,3 +54,7 @@ The `validate` command works offline against embedded JSON schemas. Other comman
 - `schemas/common/` - Shared structures (ObjectMeta, ObjectReference, Condition, Graph)
 - `schemas/v1alpha1/` - Resource-specific schemas referencing common schemas
 - `api/openapi/v1alpha1.yaml` - Full OpenAPI spec with K8s-style endpoints
+
+### Important Things
+- Remember to update @SPECIFICATION.md when making schema changes
+- Remember to add unit tests to cover any bugs or corner cases discovered

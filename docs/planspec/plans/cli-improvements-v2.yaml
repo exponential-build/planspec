@@ -55,6 +55,8 @@ spec:
         kind: Gate
         description: "Human review"
         when: "manualApproval"
+        gateRef:
+          name: review-gate
 
     edges:
       - from: add-short-flag

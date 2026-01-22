@@ -123,6 +123,8 @@ spec:
       - id: review
         kind: Gate
         description: "Human review: does it meet acceptance criteria?"
+        gateRef:
+          name: review-gate
         inputs:
           depends_on: integration-test
 

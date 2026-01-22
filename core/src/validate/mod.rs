@@ -95,10 +95,12 @@ impl Validator {
                 self.validate_label_selector(value)?;
             }
 
-            // For Plans, also check for cycles and node IDs
+            // For Plans, also check for cycles, node IDs, series/version, and node kinds
             if kind == "Plan" {
                 self.validate_plan_graph_json(value)?;
                 self.validate_plan_node_ids(value)?;
+                self.validate_plan_series_version(value)?;
+                self.validate_plan_node_kinds(value)?;
             }
             Ok(())
         }
@@ -198,6 +200,107 @@ impl Validator {
                             value: id.to_string(),
                         }]);
                     }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Validate Plan series/version co-dependency (both must be present or both absent).
+    fn validate_plan_series_version(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
+        let spec = value.get("spec");
+        if let Some(spec) = spec {
+            let has_series = spec.get("series").and_then(|s| s.as_str()).is_some();
+            let has_version = spec.get("version").and_then(|v| v.as_str()).is_some();
+
+            match (has_series, has_version) {
+                (true, false) => {
+                    return Err(vec![ValidationError::SchemaValidation {
+                        path: "/spec".to_string(),
+                        message: "'series' requires 'version' to also be specified".to_string(),
+                    }]);
+                }
+                (false, true) => {
+                    return Err(vec![ValidationError::SchemaValidation {
+                        path: "/spec".to_string(),
+                        message: "'version' requires 'series' to also be specified".to_string(),
+                    }]);
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// Validate kind-specific node constraints.
+    fn validate_plan_node_kinds(&self, value: &Value) -> Result<(), Vec<ValidationError>> {
+        let nodes = value
+            .get("spec")
+            .and_then(|s| s.get("graph"))
+            .and_then(|g| g.get("nodes"))
+            .and_then(|n| n.as_array());
+
+        if let Some(nodes) = nodes {
+            for (i, node) in nodes.iter().enumerate() {
+                let kind = node.get("kind").and_then(|k| k.as_str()).unwrap_or("");
+                let default_id = format!("index {}", i);
+                let node_id = node
+                    .get("id")
+                    .and_then(|id| id.as_str())
+                    .unwrap_or(&default_id);
+
+                match kind {
+                    "Gate" => {
+                        // Gate nodes require gateRef
+                        if node.get("gateRef").is_none() {
+                            return Err(vec![ValidationError::SchemaValidation {
+                                path: format!("/spec/graph/nodes/{}", i),
+                                message: format!(
+                                    "Gate node '{}' requires 'gateRef' field",
+                                    node_id
+                                ),
+                            }]);
+                        }
+                    }
+                    "Group" => {
+                        // Group nodes require non-empty children
+                        let children = node.get("children").and_then(|c| c.as_array());
+                        match children {
+                            None => {
+                                return Err(vec![ValidationError::SchemaValidation {
+                                    path: format!("/spec/graph/nodes/{}", i),
+                                    message: format!(
+                                        "Group node '{}' requires 'children' field",
+                                        node_id
+                                    ),
+                                }]);
+                            }
+                            Some(c) if c.is_empty() => {
+                                return Err(vec![ValidationError::SchemaValidation {
+                                    path: format!("/spec/graph/nodes/{}", i),
+                                    message: format!(
+                                        "Group node '{}' requires at least one child",
+                                        node_id
+                                    ),
+                                }]);
+                            }
+                            _ => {}
+                        }
+                    }
+                    "External" => {
+                        // External nodes require externalRef
+                        if node.get("externalRef").is_none() {
+                            return Err(vec![ValidationError::SchemaValidation {
+                                path: format!("/spec/graph/nodes/{}", i),
+                                message: format!(
+                                    "External node '{}' requires 'externalRef' field",
+                                    node_id
+                                ),
+                            }]);
+                        }
+                    }
+                    _ => {} // Task nodes have no required fields beyond id/kind
                 }
             }
         }

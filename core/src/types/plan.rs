@@ -452,31 +452,27 @@ pub struct Node {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// Reference to the capability required for this node.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub capability_ref: Option<ObjectReference>,
-
-    /// List of capability names required for this node (shorthand).
+    /// References to capabilities required for this node (Task nodes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub capabilities: Vec<String>,
+    pub capability_refs: Vec<ObjectReference>,
 
-    /// Input parameters for this node.
+    /// Input parameters for this node (Task nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub inputs: Option<Value>,
 
-    /// Expected output artifacts.
+    /// Expected output artifacts (Task nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub outputs: Option<Vec<String>>,
 
-    /// Maximum execution time for this node.
+    /// Maximum execution time for this node (Task/External nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub timeout: Option<String>,
 
-    /// Number of retry attempts on failure.
+    /// Number of retry attempts on failure (Task nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub retries: Option<i32>,
 
-    /// Condition for executing this node.
+    /// Condition for executing this node (Task nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub when: Option<String>,
 
@@ -484,21 +480,80 @@ pub struct Node {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<ContextItem>,
 
-    /// Reference to a Gate resource (for Gate nodes).
+    /// Reference to a Gate resource (required for Gate nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub gate_ref: Option<ObjectReference>,
 
-    /// Machine-verifiable acceptance criteria (for Task nodes).
+    /// Machine-verifiable acceptance criteria (Task nodes).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub acceptance_criteria: Vec<AcceptanceCriteria>,
 
-    /// Estimated effort level.
+    /// Estimated effort level (Task nodes).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub estimated_effort: Option<EstimatedEffort>,
 
-    /// List of node IDs this node depends on (alternative to edges).
+    /// List of node IDs this node depends on (convenience, normalized to edges).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub depends_on: Vec<String>,
+
+    /// Child node IDs (required for Group nodes).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<String>,
+
+    /// Execution mode for children (Group nodes).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mode: Option<GroupMode>,
+
+    /// Reference to external system (required for External nodes).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_ref: Option<ExternalRef>,
+
+    /// Poll interval for external status checks (External nodes).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub poll_interval: Option<String>,
+}
+
+/// Execution mode for Group node children.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GroupMode {
+    /// Children execute in parallel.
+    Parallel,
+    /// Children execute in sequence.
+    Sequence,
+}
+
+/// Reference to an external system or process.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExternalRef {
+    /// Type of external reference.
+    #[serde(rename = "type")]
+    pub ref_type: ExternalRefType,
+
+    /// URI of the external system (for type: uri).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uri: Option<String>,
+
+    /// Reference to a PlanSpec resource (for type: resource).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resource_ref: Option<ObjectReference>,
+
+    /// Webhook URL to poll or call (for type: webhook).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub webhook_url: Option<String>,
+}
+
+/// Type of external reference.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExternalRefType {
+    /// External URI.
+    Uri,
+    /// Reference to another PlanSpec resource.
+    Resource,
+    /// Webhook to poll.
+    Webhook,
 }
 
 /// Estimated effort level for a node.
@@ -519,8 +574,7 @@ impl Node {
             kind: NodeKind::Task,
             name: None,
             description: Some(description.into()),
-            capability_ref: None,
-            capabilities: Vec::new(),
+            capability_refs: Vec::new(),
             inputs: None,
             outputs: None,
             timeout: None,
@@ -531,18 +585,46 @@ impl Node {
             acceptance_criteria: Vec::new(),
             estimated_effort: None,
             depends_on: Vec::new(),
+            children: Vec::new(),
+            mode: None,
+            external_ref: None,
+            poll_interval: None,
         }
     }
 
     /// Create a new Gate node.
-    pub fn gate(id: impl Into<String>, description: impl Into<String>) -> Self {
+    pub fn gate(id: impl Into<String>, gate_ref: impl Into<String>) -> Self {
         Self {
             id: id.into(),
             kind: NodeKind::Gate,
             name: None,
-            description: Some(description.into()),
-            capability_ref: None,
-            capabilities: Vec::new(),
+            description: None,
+            capability_refs: Vec::new(),
+            inputs: None,
+            outputs: None,
+            timeout: None,
+            retries: None,
+            when: None,
+            context: Vec::new(),
+            gate_ref: Some(ObjectReference::new(gate_ref)),
+            acceptance_criteria: Vec::new(),
+            estimated_effort: None,
+            depends_on: Vec::new(),
+            children: Vec::new(),
+            mode: None,
+            external_ref: None,
+            poll_interval: None,
+        }
+    }
+
+    /// Create a new Group node.
+    pub fn group(id: impl Into<String>, children: Vec<String>) -> Self {
+        Self {
+            id: id.into(),
+            kind: NodeKind::Group,
+            name: None,
+            description: None,
+            capability_refs: Vec::new(),
             inputs: None,
             outputs: None,
             timeout: None,
@@ -553,12 +635,41 @@ impl Node {
             acceptance_criteria: Vec::new(),
             estimated_effort: None,
             depends_on: Vec::new(),
+            children,
+            mode: None,
+            external_ref: None,
+            poll_interval: None,
         }
     }
 
-    /// Set the capability reference for this node.
+    /// Create a new External node.
+    pub fn external(id: impl Into<String>, external_ref: ExternalRef) -> Self {
+        Self {
+            id: id.into(),
+            kind: NodeKind::External,
+            name: None,
+            description: None,
+            capability_refs: Vec::new(),
+            inputs: None,
+            outputs: None,
+            timeout: None,
+            retries: None,
+            when: None,
+            context: Vec::new(),
+            gate_ref: None,
+            acceptance_criteria: Vec::new(),
+            estimated_effort: None,
+            depends_on: Vec::new(),
+            children: Vec::new(),
+            mode: None,
+            external_ref: Some(external_ref),
+            poll_interval: None,
+        }
+    }
+
+    /// Add a capability reference to this node.
     pub fn with_capability(mut self, capability_name: impl Into<String>) -> Self {
-        self.capability_ref = Some(ObjectReference::new(capability_name));
+        self.capability_refs.push(ObjectReference::new(capability_name));
         self
     }
 
@@ -568,9 +679,15 @@ impl Node {
         self
     }
 
-    /// Set the gate reference for this node.
-    pub fn with_gate_ref(mut self, gate_name: impl Into<String>) -> Self {
-        self.gate_ref = Some(ObjectReference::new(gate_name));
+    /// Set the description for this node.
+    pub fn with_description(mut self, description: impl Into<String>) -> Self {
+        self.description = Some(description.into());
+        self
+    }
+
+    /// Set the group mode for this node.
+    pub fn with_mode(mut self, mode: GroupMode) -> Self {
+        self.mode = Some(mode);
         self
     }
 

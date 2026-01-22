@@ -136,10 +136,14 @@ spec:
       - id: code-review
         kind: Gate
         description: "Code review checkpoint - await human approval"
+        gateRef:
+          name: code-review-gate
 
       - id: security-review
         kind: Gate
         description: "Security team review checkpoint"
+        gateRef:
+          name: security-review-gate
 
       # Documentation
       - id: write-docs

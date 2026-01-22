@@ -208,15 +208,21 @@ pub const PLAN_SCHEMA: &str = r#"
                   },
                   "name": { "type": "string" },
                   "description": { "type": "string" },
-                  "capabilityRef": { "type": "object" },
-                  "capabilities": {
+                  "capabilityRefs": {
                     "type": "array",
-                    "items": { "type": "string" }
+                    "items": { "type": "object" }
                   },
                   "inputs": { "type": "object" },
-                  "outputs": { "type": "array" },
-                  "timeout": { "type": "string" },
-                  "retries": { "type": "integer" },
+                  "outputs": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "uniqueItems": true
+                  },
+                  "timeout": {
+                    "type": "string",
+                    "pattern": "^([0-9]+(\\\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+                  },
+                  "retries": { "type": "integer", "minimum": 0, "maximum": 10 },
                   "when": { "type": "string" },
                   "context": {
                     "type": "array",
@@ -238,6 +244,26 @@ pub const PLAN_SCHEMA: &str = r#"
                       "namespace": { "type": "string" }
                     }
                   },
+                  "children": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "uniqueItems": true
+                  },
+                  "mode": {
+                    "type": "string",
+                    "enum": ["parallel", "sequence"]
+                  },
+                  "externalRef": {
+                    "type": "object",
+                    "required": ["type"],
+                    "properties": {
+                      "type": { "type": "string", "enum": ["uri", "resource", "webhook"] },
+                      "uri": { "type": "string" },
+                      "resourceRef": { "type": "object" },
+                      "webhookUrl": { "type": "string" }
+                    }
+                  },
+                  "pollInterval": { "type": "string" },
                   "acceptanceCriteria": {
                     "type": "array",
                     "items": {

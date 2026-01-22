@@ -135,6 +135,8 @@ spec:
         kind: Gate
         description: "Code review and QA verification"
         when: "manualApproval"
+        gateRef:
+          name: review-gate
 
     edges:
       - from: add-button

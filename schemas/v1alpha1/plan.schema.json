@@ -50,10 +50,11 @@
         },
         "supersedes": {
           "type": "array",
-          "description": "Direct predecessors (usually one)",
+          "description": "Direct predecessor in the plan series (linear history)",
           "items": {
             "$ref": "../common/reference.schema.json"
-          }
+          },
+          "maxItems": 1
         },
         "description": {
           "type": "string",
@@ -65,6 +66,11 @@
           "$ref": "../common/graph.schema.json",
           "description": "The DAG structure"
         },
+        "graphDigest": {
+          "type": "string",
+          "description": "Content hash of the canonicalized graph JSON. Used for caching, provenance, and tamper detection.",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
         "context": {
           "type": "array",
           "description": "Contextual attachments (notes, code pointers, structured data)",
@@ -73,7 +79,11 @@
           }
         }
       },
-      "additionalProperties": false
+      "additionalProperties": false,
+      "dependentRequired": {
+        "series": ["version"],
+        "version": ["series"]
+      }
     },
     "planStatus": {
       "type": "object",

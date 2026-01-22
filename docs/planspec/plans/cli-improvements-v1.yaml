@@ -144,6 +144,8 @@ spec:
         kind: Gate
         description: "Human review of improvements"
         when: "manualApproval"
+        gateRef:
+          name: review-gate
 
     edges:
       - from: server-status-population

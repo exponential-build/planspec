@@ -160,6 +160,8 @@ spec:
         kind: Gate
         description: "Human review: context fields working as expected?"
         when: "manualApproval"
+        gateRef:
+          name: review-gate
 
     edges:
       - from: design-schema

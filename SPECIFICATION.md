@@ -52,14 +52,17 @@ status:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Unique within namespace, DNS-subdomain format |
+| `name` | string | Yes | Unique within namespace, DNS label format (max 63 characters) |
 | `namespace` | string | Yes | Isolation boundary |
 | `uid` | string | System | Immutable server-assigned UUID |
 | `resourceVersion` | string | System | Optimistic concurrency token |
 | `generation` | integer | System | Increments on spec changes only |
 | `labels` | map[string]string | No | Key-value pairs for selection |
-| `annotations` | map[string]string | No | Key-value pairs for tooling (extensible) |
+| `annotations` | map[string]string | No | Key-value pairs for tooling (max 64KB per value) |
 | `creationTimestamp` | datetime | System | RFC3339 timestamp |
+| `deletionTimestamp` | datetime | System | Set when deletion requested (enables finalizers) |
+| `deletionGracePeriodSeconds` | integer | System | Seconds until forced deletion |
+| `finalizers` | []string | No | Unique list of finalizers that must complete before deletion |
 | `ownerReferences` | []OwnerReference | No | For cascading deletion |
 
 **Server-side field responsibilities:**
@@ -152,13 +155,14 @@ status:
 | `constraints` | map[string]any | No | Constraints that must be satisfied (e.g., technology choices) |
 | `acceptanceCriteria` | []AcceptanceCriterion | No | Criteria that define when the goal is achieved |
 | `planSelector` | LabelSelector | No | Select plans by labels |
-| `timeout` | duration | No | Maximum time allowed (e.g., "24h", "7d") |
+| `timeout` | duration | No | Maximum time allowed (e.g., "24h", "168h") |
 | `priority` | integer | No | Priority for scheduling (higher = more urgent). Default: 0 |
 
 ### AcceptanceCriterion
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `id` | string | No | Stable identifier (DNS label format) for referencing this criterion |
 | `description` | string | Yes | Human-readable description of the criterion |
 
 ### LabelSelector
@@ -256,18 +260,20 @@ status:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `goalRef` | ObjectReference | No | Reference to the Goal (supports reusable plans) |
-| `series` | string | No | Stable plan family identifier |
-| `version` | string | No | Version within series (e.g., "2" or "2.1.0") |
-| `supersedes` | []ObjectReference | No | Direct predecessors (usually one) |
+| `series` | string | No | Stable plan family identifier (requires `version`) |
+| `version` | string | No | Version within series (requires `series`) |
+| `supersedes` | []ObjectReference | No | Direct predecessor (max 1 for linear history) |
+| `graphDigest` | string | No | Content hash of the graph (e.g., "sha256:abc123...") |
 | `description` | string | Yes | Human-readable description |
 | `graph` | Graph | Yes | The DAG structure |
 
 **Why `goalRef` is optional:** Supports reusable plans and 1:many Goal-to-Plan relationships. A Plan may be used across multiple Goals or exist independently.
 
 **Plan versioning fields:**
-- `spec.series` — stable plan family identifier (e.g., "sso")
-- `spec.version` — version within series (string)
-- `spec.supersedes` — direct predecessors only; full ancestry derived by traversal
+- `spec.series` — stable plan family identifier (e.g., "sso"). MUST be provided with `version`.
+- `spec.version` — version within series (string). MUST be provided with `series`.
+- `spec.supersedes` — direct predecessor only (max 1); full ancestry derived by traversal
+- `spec.graphDigest` — SHA-256 hash of the graph for content-addressable caching
 
 **Recommended labels (mirror spec fields for selectors):**
 - `planspec.io/goal=<goalName>` — which goal this plan is for
@@ -279,22 +285,20 @@ status:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `nodes` | []Node | Yes | The nodes in the DAG |
-| `edges` | []Edge | No | The edges connecting nodes |
+| `edges` | []Edge | No | The edges connecting nodes (canonical dependency expression) |
+
+**Dependencies:** Edges are the canonical way to express node dependencies. Node-local `dependsOn` is NOT supported; all dependencies MUST be expressed via the `edges` array.
 
 ### Node
+
+Nodes have kind-specific constraints. All nodes share these common fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `id` | string | Yes | Unique identifier within the plan |
 | `kind` | NodeKind | Yes | Type of node |
 | `description` | string | Yes | Human-readable description |
-| `capabilityRef` | ObjectReference | No | Required capability (for Task nodes) |
-| `gateRef` | ObjectReference | No | Reference to Gate resource (for Gate nodes) |
-| `inputs` | map[string]any | No | Input values |
-| `outputs` | []string | No | Expected output names |
-| `acceptanceCriteria` | []AcceptanceCriteria | No | Machine-verifiable completion conditions (for Task nodes) |
 | `timeout` | duration | No | Maximum execution time |
-| `retries` | integer | No | Number of retry attempts |
 | `when` | string | No | Condition expression for conditional execution |
 
 ### NodeKind
@@ -302,9 +306,61 @@ status:
 | Kind | Description |
 |------|-------------|
 | `Task` | A concrete unit of work to be executed |
-| `Gate` | A checkpoint requiring approval or validation (references a Gate resource) |
-| `Group` | A container for sub-nodes (future) |
-| `External` | Work performed outside PlanSpec (future) |
+| `Gate` | A checkpoint requiring approval or validation (requires `gateRef`) |
+| `Group` | A container for sub-nodes (requires `children`) |
+| `External` | Work performed outside PlanSpec (requires `externalRef`) |
+
+### Task Node Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `capabilityRefs` | []ObjectReference | No | Capabilities required to execute this task |
+| `inputs` | map[string]any | No | Input values |
+| `outputs` | []string | No | Expected output names (unique) |
+| `acceptanceCriteria` | []AcceptanceCriteria | No | Machine-verifiable completion conditions |
+| `retries` | integer | No | Number of retry attempts |
+
+### Gate Node Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `gateRef` | ObjectReference | **Yes** | Reference to Gate resource |
+
+Gate nodes MUST specify a `gateRef`. Gate nodes MUST NOT have `capabilityRefs`, `inputs`, `outputs`, `retries`, `children`, or `externalRef`.
+
+### Group Node Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `children` | []string | **Yes** | Non-empty list of child node IDs |
+| `mode` | GroupMode | No | Execution mode: "parallel" (default) or "sequence" |
+
+Group nodes MUST have at least one child. Group nodes MUST NOT have `gateRef` or `externalRef`.
+
+### GroupMode
+
+| Mode | Description |
+|------|-------------|
+| `parallel` | Execute children concurrently (default) |
+| `sequence` | Execute children in order |
+
+### External Node Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `externalRef` | ExternalRef | **Yes** | Reference to external work |
+| `pollInterval` | duration | No | How often to poll for completion |
+
+External nodes MUST specify an `externalRef`. External nodes MUST NOT have `gateRef` or `children`.
+
+### ExternalRef
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `type` | string | Yes | Reference type: "uri", "resource", or "webhook" |
+| `uri` | string | Conditional | URI for external system (required if type is "uri") |
+| `resource` | ObjectReference | Conditional | Reference to external resource (required if type is "resource") |
+| `webhook` | string | Conditional | Webhook URL (required if type is "webhook") |
 
 ### AcceptanceCriteria (for Task nodes)
 
@@ -995,26 +1051,30 @@ PlanSpec defines **executable resource specs** and their lifecycle semantics. Im
 
 - Resource names: lowercase, alphanumeric, hyphens allowed
 - Pattern: `[a-z0-9]([-a-z0-9]*[a-z0-9])?`
-- Max length: 253 characters (DNS subdomain)
+- Max length: 63 characters (DNS label format)
 - Namespaces follow the same rules
 
 ### Labels and Annotations
 
 **Labels** are for selection and organization:
+- Label keys follow Kubernetes label key syntax
+- Label values MUST match: `^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$` (max 63 chars, or empty)
 - `planspec.io/goal` — Goal name
 - `planspec.io/series` — Plan series identifier
 - `planspec.io/version` — Plan version
 - `planspec.io/team` — Team identifier
 - `planspec.io/environment` — Environment (dev, staging, prod)
 
-**Annotations** are for tooling and metadata:
+**Annotations** are for tooling and metadata (max 64KB per value):
 - `planspec.io/created-by` — Identity of creator
 - `planspec.io/description` — Extended description
 - `planspec.io/source` — Source reference (e.g., git SHA)
 
 ### Durations
 
-Durations use Go-style format: `1h30m`, `24h`, `7d`, `500ms`
+Durations use Go-style format: `1h30m`, `24h`, `168h`, `500ms`
+
+Valid units: `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`. Days are NOT supported; use hours instead (e.g., `168h` for 7 days).
 
 ### References
 
