@@ -114,6 +114,9 @@ jobs:
       - name: Validate PlanSpec resources
         run: target/release/planspec validate -d docs/planspec -R
 
+      - name: Validate example specs
+        run: target/release/planspec validate -d docs/examples -R
+
   schema-validation:
     name: Schema Validation
     runs-on: ubuntu-latest
