@@ -120,7 +120,14 @@ async fn run_get_all(
     output_format: &str,
 ) -> Result<()> {
     // Resource types to fetch (in display order, similar to kubectl)
-    let resource_types = ["goals", "plans", "executions", "capabilities", "bindings", "gates"];
+    let resource_types = [
+        "goals",
+        "plans",
+        "executions",
+        "capabilities",
+        "bindings",
+        "gates",
+    ];
 
     // For JSON/YAML output, collect all resources into a single structure
     if output_format == "json" || output_format == "yaml" {
