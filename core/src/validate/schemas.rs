@@ -461,6 +461,11 @@ pub const BINDING_SCHEMA: &str = r#"
       "type": "object",
       "required": ["rules"],
       "properties": {
+        "strategy": {
+          "type": "string",
+          "enum": ["FirstMatch", "MostSpecific", "ErrorOnConflict"],
+          "default": "FirstMatch"
+        },
         "rules": {
           "type": "array",
           "minItems": 1,
@@ -468,19 +473,21 @@ pub const BINDING_SCHEMA: &str = r#"
             "type": "object",
             "required": ["selector", "target"],
             "properties": {
+              "priority": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 0 },
               "selector": {
                 "type": "object",
                 "properties": {
                   "capabilityRef": { "type": "object" },
                   "planRef": { "type": "object" },
-                  "nodeId": { "type": "string" }
+                  "nodeId": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+                  "matchLabels": { "type": "object", "additionalProperties": { "type": "string" } }
                 }
               },
               "target": {
                 "type": "object",
                 "required": ["provider"],
                 "properties": {
-                  "provider": { "type": "string" },
+                  "provider": { "type": "string", "minLength": 1, "maxLength": 512 },
                   "config": { "type": "object" }
                 }
               }
@@ -490,7 +497,27 @@ pub const BINDING_SCHEMA: &str = r#"
       }
     },
     "status": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "phase": { "type": "string", "enum": ["Ready", "PartiallyBound", "Unresolved"] },
+        "totalCount": { "type": "integer", "minimum": 0 },
+        "boundCount": { "type": "integer", "minimum": 0 },
+        "unboundCapabilities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["capabilityRef"],
+            "properties": {
+              "capabilityRef": { "type": "object" },
+              "nodeId": { "type": "string" },
+              "reason": { "type": "string" },
+              "message": { "type": "string" }
+            }
+          }
+        },
+        "conditions": { "type": "array" },
+        "observedGeneration": { "type": "integer", "minimum": 0 }
+      }
     }
   }
 }

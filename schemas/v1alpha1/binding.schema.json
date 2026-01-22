@@ -2,7 +2,7 @@
   "$id": "https://planspec.io/schemas/v1alpha1/binding.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Binding",
-  "description": "Resolution of capability requirements to provider targets",
+  "description": "Resolution of capability requirements to provider targets. Rules are considered in precedence order: explicit priority (higher wins), then specificity (planRef+nodeId > planRef+capabilityRef > capabilityRef > planRef > matchLabels), then array order. When multiple rules match, resolution follows spec.strategy.",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
@@ -33,6 +33,12 @@
       "description": "Specification of the binding",
       "required": ["rules"],
       "properties": {
+        "strategy": {
+          "type": "string",
+          "description": "Conflict resolution when multiple rules match at same precedence. FirstMatch: first in array order wins. MostSpecific: narrowest selector wins. ErrorOnConflict: fail if ambiguous.",
+          "enum": ["FirstMatch", "MostSpecific", "ErrorOnConflict"],
+          "default": "FirstMatch"
+        },
         "rules": {
           "type": "array",
           "description": "Rules for resolving capabilities to providers",
@@ -49,6 +55,13 @@
       "description": "A rule for binding capabilities to providers",
       "required": ["selector", "target"],
       "properties": {
+        "priority": {
+          "type": "integer",
+          "description": "Explicit priority (higher wins). Rules with same priority fall back to specificity, then array order.",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 0
+        },
         "selector": {
           "$ref": "#/$defs/bindingSelector",
           "description": "What this rule matches"
@@ -62,27 +75,76 @@
     },
     "bindingSelector": {
       "type": "object",
-      "description": "Selector for matching capabilities or nodes",
+      "description": "Selector for matching capabilities or nodes. Exactly one selector shape must be used.",
       "properties": {
         "capabilityRef": {
           "$ref": "../common/reference.schema.json",
-          "description": "Match all uses of a capability"
+          "description": "Match all uses of a capability (across all plans)"
         },
         "planRef": {
           "$ref": "../common/reference.schema.json",
-          "description": "Match a specific plan"
+          "description": "Match within a specific plan (plan-wide default, or combined with nodeId/capabilityRef)"
         },
         "nodeId": {
           "type": "string",
-          "description": "Match a specific node (requires planRef)",
+          "description": "Match a specific node (requires planRef). Must match graph.nodes[].id in the referenced Plan.",
           "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
           "maxLength": 63
+        },
+        "matchLabels": {
+          "type": "object",
+          "description": "Match Plans with all specified labels (AND semantics). Matches against Plan metadata.labels only.",
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
+            "maxLength": 63
+          },
+          "propertyNames": {
+            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+            "maxLength": 253
+          }
         }
       },
       "additionalProperties": false,
-      "anyOf": [
-        { "required": ["capabilityRef"] },
-        { "required": ["planRef", "nodeId"] }
+      "oneOf": [
+        {
+          "required": ["capabilityRef"],
+          "not": { "anyOf": [
+            { "required": ["planRef"] },
+            { "required": ["nodeId"] },
+            { "required": ["matchLabels"] }
+          ]}
+        },
+        {
+          "required": ["planRef"],
+          "not": { "anyOf": [
+            { "required": ["nodeId"] },
+            { "required": ["capabilityRef"] },
+            { "required": ["matchLabels"] }
+          ]}
+        },
+        {
+          "required": ["planRef", "nodeId"],
+          "not": { "anyOf": [
+            { "required": ["capabilityRef"] },
+            { "required": ["matchLabels"] }
+          ]}
+        },
+        {
+          "required": ["planRef", "capabilityRef"],
+          "not": { "anyOf": [
+            { "required": ["nodeId"] },
+            { "required": ["matchLabels"] }
+          ]}
+        },
+        {
+          "required": ["matchLabels"],
+          "not": { "anyOf": [
+            { "required": ["planRef"] },
+            { "required": ["nodeId"] },
+            { "required": ["capabilityRef"] }
+          ]}
+        }
       ]
     },
     "bindingTarget": {
@@ -92,13 +154,13 @@
       "properties": {
         "provider": {
           "type": "string",
-          "description": "Implementation-defined provider string/URI",
+          "description": "Provider identifier. Use URI format for clarity (e.g., 'agent://claude-code', 'mcp://filesystem', 'http://api.example.com'). Plain strings allowed for simple cases.",
           "minLength": 1,
           "maxLength": 512
         },
         "config": {
           "type": "object",
-          "description": "Provider-specific configuration",
+          "description": "Provider-specific configuration. Structure depends on provider.",
           "additionalProperties": true
         }
       },
@@ -106,36 +168,71 @@
     },
     "bindingStatus": {
       "type": "object",
-      "description": "Status of the binding",
+      "description": "Status of the binding. Invariant: boundCount <= totalCount.",
       "properties": {
         "phase": {
           "type": "string",
           "description": "Current phase",
           "enum": ["Ready", "PartiallyBound", "Unresolved"]
         },
+        "totalCount": {
+          "type": "integer",
+          "description": "Total number of capability requirements that need binding",
+          "minimum": 0
+        },
         "boundCount": {
           "type": "integer",
-          "description": "Number of successfully bound capabilities",
+          "description": "Number of successfully bound capability requirements. Must be <= totalCount.",
           "minimum": 0
         },
         "unboundCapabilities": {
           "type": "array",
           "description": "Capabilities that could not be resolved",
           "items": {
-            "type": "string"
-          }
+            "$ref": "#/$defs/unboundCapability"
+          },
+          "default": []
         },
         "conditions": {
           "type": "array",
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "default": []
         },
         "observedGeneration": {
           "type": "integer",
           "description": "The generation observed by the controller",
           "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "unboundCapability": {
+      "type": "object",
+      "description": "A capability that could not be bound",
+      "required": ["capabilityRef"],
+      "properties": {
+        "capabilityRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reference to the unbound capability"
+        },
+        "nodeId": {
+          "type": "string",
+          "description": "Node ID where this capability is required (if node-specific)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
+        },
+        "reason": {
+          "type": "string",
+          "description": "Machine-readable reason (e.g., 'NoMatchingRule', 'ProviderUnavailable', 'ConfigInvalid')",
+          "maxLength": 256
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable explanation",
+          "maxLength": 1024
         }
       },
       "additionalProperties": false
