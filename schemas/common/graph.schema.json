@@ -62,22 +62,21 @@
           "description": "Contextual attachments for this node",
           "items": {
             "$ref": "context.schema.json"
-          }
+          },
+          "default": []
         },
         "dependsOn": {
           "type": "array",
-          "description": "Convenience: node IDs this node depends on. Normalized to edges by controller.",
+          "description": "Convenience: node IDs this node depends on. Normalized to hard edges by controller. For soft dependencies, use edges directly.",
           "items": {
             "$ref": "#/$defs/nodeId"
-          }
+          },
+          "default": []
         }
       }
     },
     "node": {
-      "description": "A node in the plan DAG. Shape varies by kind.",
-      "allOf": [
-        { "$ref": "#/$defs/nodeBase" }
-      ],
+      "description": "A node in the plan DAG. Shape varies by kind. Discriminated by 'kind' field.",
       "oneOf": [
         { "$ref": "#/$defs/taskNode" },
         { "$ref": "#/$defs/gateNode" },
@@ -86,167 +85,193 @@
       ]
     },
     "taskNode": {
-      "type": "object",
       "description": "A task node representing work to be executed",
-      "required": ["id", "kind"],
-      "properties": {
-        "id": { "$ref": "#/$defs/nodeId" },
-        "kind": { "const": "Task" },
-        "name": { "type": "string", "maxLength": 253 },
-        "description": { "type": "string", "maxLength": 1024 },
-        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
-        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
-        "capabilityRefs": {
-          "type": "array",
-          "description": "References to capabilities required for this task",
-          "items": {
-            "$ref": "reference.schema.json"
-          }
-        },
-        "inputs": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
           "type": "object",
-          "description": "Input values for this task. Keys starting with _ are reserved.",
-          "additionalProperties": true
-        },
-        "outputs": {
-          "type": "array",
-          "description": "Expected output names (must be unique)",
-          "items": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$",
-            "maxLength": 63
-          },
-          "uniqueItems": true
-        },
-        "timeout": {
-          "type": "string",
-          "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
-        },
-        "retries": {
-          "type": "integer",
-          "description": "Number of retry attempts",
-          "minimum": 0,
-          "maximum": 10,
-          "default": 0
-        },
-        "when": {
-          "type": "string",
-          "description": "Condition expression for conditional execution (CEL-like, evaluated against node context)",
-          "maxLength": 1024
-        },
-        "acceptanceCriteria": {
-          "type": "array",
-          "description": "Machine-verifiable acceptance criteria for this task",
-          "items": {
-            "$ref": "acceptance-criteria.schema.json"
+          "required": ["id", "kind"],
+          "properties": {
+            "kind": { "const": "Task" },
+            "capabilityRefs": {
+              "type": "array",
+              "description": "References to capabilities required for this task",
+              "items": {
+                "$ref": "reference.schema.json"
+              },
+              "default": []
+            },
+            "inputs": {
+              "type": "object",
+              "description": "Input values for this task. Keys starting with _ are reserved.",
+              "additionalProperties": true
+            },
+            "outputs": {
+              "type": "array",
+              "description": "Expected output names (must be unique)",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "maxLength": 63
+              },
+              "uniqueItems": true,
+              "default": []
+            },
+            "timeout": {
+              "type": "string",
+              "description": "Maximum execution time (Go duration format: ns, us/µs, ms, s, m, h)",
+              "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            },
+            "retries": {
+              "type": "integer",
+              "description": "Number of retry attempts",
+              "minimum": 0,
+              "maximum": 10,
+              "default": 0
+            },
+            "when": {
+              "type": "string",
+              "description": "Condition expression for conditional execution (CEL-like, evaluated against node context)",
+              "maxLength": 1024
+            },
+            "acceptanceCriteria": {
+              "type": "array",
+              "description": "Machine-verifiable acceptance criteria for this task",
+              "items": {
+                "$ref": "acceptance-criteria.schema.json"
+              },
+              "default": []
+            },
+            "estimatedEffort": {
+              "type": "string",
+              "description": "Estimated effort level for planning purposes",
+              "enum": ["small", "medium", "large", "xlarge"]
+            }
           }
-        },
-        "estimatedEffort": {
-          "type": "string",
-          "description": "Estimated effort level for planning purposes",
-          "enum": ["small", "medium", "large", "xlarge"]
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "gateNode": {
-      "type": "object",
       "description": "A gate node representing an approval/review checkpoint",
-      "required": ["id", "kind", "gateRef"],
-      "properties": {
-        "id": { "$ref": "#/$defs/nodeId" },
-        "kind": { "const": "Gate" },
-        "name": { "type": "string", "maxLength": 253 },
-        "description": { "type": "string", "maxLength": 1024 },
-        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
-        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
-        "gateRef": {
-          "$ref": "reference.schema.json",
-          "description": "Reference to the Gate resource defining approval requirements"
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["id", "kind", "gateRef"],
+          "properties": {
+            "kind": { "const": "Gate" },
+            "gateRef": {
+              "$ref": "reference.schema.json",
+              "description": "Reference to the Gate resource defining approval requirements"
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "groupNode": {
-      "type": "object",
-      "description": "A group node representing a logical grouping of other nodes",
-      "required": ["id", "kind", "children"],
-      "properties": {
-        "id": { "$ref": "#/$defs/nodeId" },
-        "kind": { "const": "Group" },
-        "name": { "type": "string", "maxLength": 253 },
-        "description": { "type": "string", "maxLength": 1024 },
-        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
-        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
-        "children": {
-          "type": "array",
-          "description": "Node IDs that belong to this group",
-          "items": {
-            "$ref": "#/$defs/nodeId"
-          },
-          "minItems": 1,
-          "uniqueItems": true
-        },
-        "mode": {
-          "type": "string",
-          "description": "Execution hint for children within the group",
-          "enum": ["parallel", "sequence"],
-          "default": "parallel"
+      "description": "A group node representing a logical grouping of other nodes. Groups are presentational and provide planner hints; actual execution ordering is determined by edges.",
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
+          "type": "object",
+          "required": ["id", "kind", "children"],
+          "properties": {
+            "kind": { "const": "Group" },
+            "children": {
+              "type": "array",
+              "description": "Node IDs that belong to this group",
+              "items": {
+                "$ref": "#/$defs/nodeId"
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "mode": {
+              "type": "string",
+              "description": "Execution hint for planner/UI. Does NOT generate edges; use edges for actual ordering.",
+              "enum": ["parallel", "sequence"],
+              "default": "parallel"
+            }
+          }
         }
-      },
-      "additionalProperties": false
+      ],
+      "unevaluatedProperties": false
     },
     "externalNode": {
-      "type": "object",
       "description": "An external node representing a dependency on an external system or process",
-      "required": ["id", "kind", "externalRef"],
-      "properties": {
-        "id": { "$ref": "#/$defs/nodeId" },
-        "kind": { "const": "External" },
-        "name": { "type": "string", "maxLength": 253 },
-        "description": { "type": "string", "maxLength": 1024 },
-        "context": { "type": "array", "items": { "$ref": "context.schema.json" } },
-        "dependsOn": { "type": "array", "items": { "$ref": "#/$defs/nodeId" } },
-        "externalRef": {
+      "allOf": [
+        { "$ref": "#/$defs/nodeBase" },
+        {
           "type": "object",
-          "description": "Reference to the external system or process",
+          "required": ["id", "kind", "externalRef"],
           "properties": {
-            "type": {
-              "type": "string",
-              "description": "Type of external reference",
-              "enum": ["uri", "resource", "webhook"]
+            "kind": { "const": "External" },
+            "externalRef": {
+              "$ref": "#/$defs/externalRef",
+              "description": "Reference to the external system or process"
             },
+            "pollInterval": {
+              "type": "string",
+              "description": "How often to check external status (Go duration format)",
+              "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            },
+            "timeout": {
+              "type": "string",
+              "description": "Maximum time to wait for external completion",
+              "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+            }
+          }
+        }
+      ],
+      "unevaluatedProperties": false
+    },
+    "externalRef": {
+      "description": "Reference to an external system or process. Discriminated by 'type' field.",
+      "oneOf": [
+        {
+          "type": "object",
+          "description": "URI reference to an external system",
+          "required": ["type", "uri"],
+          "properties": {
+            "type": { "const": "uri" },
             "uri": {
               "type": "string",
-              "description": "URI of the external system (for type: uri)",
-              "format": "uri"
-            },
-            "resourceRef": {
-              "$ref": "reference.schema.json",
-              "description": "Reference to a PlanSpec resource (for type: resource)"
-            },
-            "webhookUrl": {
-              "type": "string",
-              "description": "Webhook URL to poll or call (for type: webhook)",
+              "description": "URI of the external system",
               "format": "uri"
             }
           },
-          "required": ["type"],
           "additionalProperties": false
         },
-        "pollInterval": {
-          "type": "string",
-          "description": "How often to check external status (Go duration format)",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        {
+          "type": "object",
+          "description": "Reference to another PlanSpec resource",
+          "required": ["type", "resourceRef"],
+          "properties": {
+            "type": { "const": "resource" },
+            "resourceRef": {
+              "$ref": "reference.schema.json",
+              "description": "Reference to a PlanSpec resource"
+            }
+          },
+          "additionalProperties": false
         },
-        "timeout": {
-          "type": "string",
-          "description": "Maximum time to wait for external completion",
-          "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+        {
+          "type": "object",
+          "description": "Webhook URL to poll or call for status",
+          "required": ["type", "webhookUrl"],
+          "properties": {
+            "type": { "const": "webhook" },
+            "webhookUrl": {
+              "type": "string",
+              "description": "Webhook URL to poll or call",
+              "format": "uri"
+            }
+          },
+          "additionalProperties": false
         }
-      },
-      "additionalProperties": false
+      ]
     },
     "edge": {
       "type": "object",

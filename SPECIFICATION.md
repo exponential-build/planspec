@@ -287,7 +287,12 @@ status:
 | `nodes` | []Node | Yes | The nodes in the DAG |
 | `edges` | []Edge | No | The edges connecting nodes (canonical dependency expression) |
 
-**Dependencies:** Edges are the canonical way to express node dependencies. Node-local `dependsOn` is NOT supported; all dependencies MUST be expressed via the `edges` array.
+**Dependencies:** Edges are the canonical way to express node dependencies.
+
+**`dependsOn` convenience sugar:** Nodes MAY include a `dependsOn` field listing node IDs. This is syntactic sugar that controllers normalize to edges:
+- For each node `N` with `dependsOn: [A, B]`, the controller adds edges `{from: A, to: N, type: hard}` and `{from: B, to: N, type: hard}` if not already present
+- Explicit edges always take precedence; `dependsOn` only adds missing edges
+- `dependsOn` always implies `hard` dependencies; use explicit edges for `soft` dependencies
 
 ### Node
 
@@ -295,9 +300,12 @@ Nodes have kind-specific constraints. All nodes share these common fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `id` | string | Yes | Unique identifier within the plan |
+| `id` | string | Yes | Unique identifier within the plan (DNS label format) |
 | `kind` | NodeKind | Yes | Type of node |
-| `description` | string | Yes | Human-readable description |
+| `name` | string | No | Human-readable name |
+| `description` | string | No | Human-readable description |
+| `context` | []ContextItem | No | Contextual attachments (defaults to []) |
+| `dependsOn` | []string | No | Convenience sugar for dependencies (defaults to []) |
 | `timeout` | duration | No | Maximum execution time |
 | `when` | string | No | Condition expression for conditional execution |
 
@@ -333,16 +341,18 @@ Gate nodes MUST specify a `gateRef`. Gate nodes MUST NOT have `capabilityRefs`, 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `children` | []string | **Yes** | Non-empty list of child node IDs |
-| `mode` | GroupMode | No | Execution mode: "parallel" (default) or "sequence" |
+| `mode` | GroupMode | No | Execution hint: "parallel" (default) or "sequence" |
 
 Group nodes MUST have at least one child. Group nodes MUST NOT have `gateRef` or `externalRef`.
+
+**Group semantics (Model A - presentational):** Groups are purely organizational metadata for UI and planner hints. They do NOT generate edges or control execution order. Actual execution ordering is always determined by the `edges` array. The `mode` field is an advisory hint to planners/UIs about intended parallelism, not a guarantee.
 
 ### GroupMode
 
 | Mode | Description |
 |------|-------------|
-| `parallel` | Execute children concurrently (default) |
-| `sequence` | Execute children in order |
+| `parallel` | Hint: children may execute concurrently (default) |
+| `sequence` | Hint: children are intended to execute in array order |
 
 ### External Node Fields
 
@@ -355,12 +365,15 @@ External nodes MUST specify an `externalRef`. External nodes MUST NOT have `gate
 
 ### ExternalRef
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `type` | string | Yes | Reference type: "uri", "resource", or "webhook" |
-| `uri` | string | Conditional | URI for external system (required if type is "uri") |
-| `resource` | ObjectReference | Conditional | Reference to external resource (required if type is "resource") |
-| `webhook` | string | Conditional | Webhook URL (required if type is "webhook") |
+ExternalRef is a discriminated union by `type`. Each type requires specific fields:
+
+| Type | Required Fields | Description |
+|------|-----------------|-------------|
+| `uri` | `type`, `uri` | URI reference to an external system |
+| `resource` | `type`, `resourceRef` | Reference to another PlanSpec resource |
+| `webhook` | `type`, `webhookUrl` | Webhook URL to poll or call for status |
+
+**Validation:** Exactly one of `uri`, `resourceRef`, or `webhookUrl` MUST be present, matching the `type` field. Invalid combinations (e.g., `type: uri` with `webhookUrl`) MUST be rejected.
 
 ### AcceptanceCriteria (for Task nodes)
 
@@ -408,10 +421,20 @@ Task nodes MAY specify machine-verifiable completion conditions via `acceptanceC
 
 ### Graph Invariants
 
+**Schema-level (enforced by JSON Schema):**
+- Node IDs MUST match DNS label format
+- Node `kind` MUST be one of: Task, Gate, Group, External
+- Kind-specific required fields MUST be present (gateRef for Gate, children for Group, externalRef for External)
+- Output names MUST be unique within a node
+
+**Controller-level (enforced at creation/update):**
 - Node IDs MUST be unique within a plan
-- Edges MUST reference valid node IDs
-- Graph MUST be acyclic considering all edges
-- Validation MUST be performed at creation time; cyclic graphs MUST be rejected
+- Edges MUST reference valid node IDs (both `from` and `to` must exist)
+- Graph MUST be acyclic; cyclic graphs MUST be rejected
+- Self-loops (`from == to`) MUST be rejected
+- Duplicate edges (same `from`, `to`, `type`) SHOULD be deduplicated
+- Group `children` MUST reference valid node IDs
+- `dependsOn` entries MUST reference valid node IDs
 
 ### Status Fields
 
@@ -464,28 +487,37 @@ status:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `displayName` | string | No | Human-friendly name |
+| `displayName` | string | No | Human-friendly name (can change; metadata.name is stable identity) |
 | `description` | string | Yes | Description of what this capability does |
-| `category` | string | No | Category for organization |
-| `inputs` | []ParameterDefinition | No | Input parameters accepted |
-| `outputs` | []ParameterDefinition | No | Output artifacts produced |
-| `requirements` | []CapabilityRequirement | No | Other capabilities this one depends on |
+| `category` | string | No | Category for organization (kebab-case for URL/UI stability) |
+| `inputs` | []ParameterDefinition | No | Input parameters accepted (defaults to []) |
+| `outputs` | []ParameterDefinition | No | Output artifacts produced (defaults to []) |
+| `requirements` | []CapabilityRequirement | No | Other capabilities this one depends on (defaults to []) |
 
 ### ParameterDefinition
 
+Parameter names use programming identifier style (`camelCase` or `snake_case`) for codegen compatibility.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | Yes | Parameter name |
+| `name` | string | Yes | Parameter name (pattern: `^[a-zA-Z][a-zA-Z0-9_]*$`) |
 | `type` | string | Yes | Data type: "string", "number", "boolean", "object", "array" |
 | `description` | string | No | Description |
 | `required` | boolean | No | Whether required. Default: false |
 | `default` | any | No | Default value |
+| `format` | string | No | Format hint for strings: "uri", "email", "date-time", "uuid", etc. |
+| `enum` | []any | No | Allowed values (for constrained inputs) |
+| `itemType` | string | No | Element type for array parameters |
+| `properties` | map[string]ParameterDefinition | No | Property definitions for object parameters |
 
 ### CapabilityRequirement
 
+Requirements reference other capabilities by name, with optional namespace for cross-namespace dependencies.
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `capability` | string | Yes | Name of required capability |
+| `name` | string | Yes | Name of required capability (must match target's metadata.name) |
+| `namespace` | string | No | Namespace of required capability. Defaults to same namespace. |
 | `optional` | boolean | No | Whether optional. Default: false |
 
 ### Status Fields
@@ -495,6 +527,8 @@ status:
 | `phase` | CapabilityPhase | Current phase |
 | `conditions` | []Condition | Detailed conditions |
 | `observedGeneration` | integer | Generation observed |
+| `replacement` | ObjectReference | Reference to replacement capability (when Deprecated) |
+| `deprecationMessage` | string | Migration guidance when Deprecated |
 
 ### CapabilityPhase
 

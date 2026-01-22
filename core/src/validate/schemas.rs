@@ -351,11 +351,13 @@ pub const CAPABILITY_SCHEMA: &str = r#"
       "properties": {
         "name": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "namespace": {
           "type": "string",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         }
       }
     },
@@ -363,26 +365,35 @@ pub const CAPABILITY_SCHEMA: &str = r#"
       "type": "object",
       "required": ["description"],
       "properties": {
-        "displayName": { "type": "string" },
+        "displayName": { "type": "string", "maxLength": 128 },
         "description": {
           "type": "string",
-          "minLength": 1
+          "minLength": 1,
+          "maxLength": 4096
         },
-        "category": { "type": "string" },
+        "category": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
         "inputs": {
           "type": "array",
           "items": {
             "type": "object",
             "required": ["name", "type"],
             "properties": {
-              "name": { "type": "string" },
+              "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$" },
               "type": {
                 "type": "string",
                 "enum": ["string", "number", "boolean", "object", "array"]
               },
               "description": { "type": "string" },
               "required": { "type": "boolean" },
-              "default": {}
+              "default": {},
+              "format": { "type": "string" },
+              "enum": { "type": "array" },
+              "itemType": { "type": "string" },
+              "properties": { "type": "object" }
             }
           }
         },
@@ -401,9 +412,10 @@ pub const CAPABILITY_SCHEMA: &str = r#"
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["capability"],
+            "required": ["name"],
             "properties": {
-              "capability": { "type": "string" },
+              "name": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
+              "namespace": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$" },
               "optional": { "type": "boolean" }
             }
           }

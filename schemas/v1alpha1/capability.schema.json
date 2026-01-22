@@ -2,7 +2,7 @@
   "$id": "https://planspec.io/schemas/v1alpha1/capability.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Capability",
-  "description": "A reusable ability that agents can provide",
+  "description": "A reusable ability that agents can provide. metadata.name is the immutable identity; spec.displayName can change freely.",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
@@ -35,7 +35,7 @@
       "properties": {
         "displayName": {
           "type": "string",
-          "description": "Human-friendly name for display",
+          "description": "Human-friendly name for display (can change; metadata.name is the stable identity)",
           "maxLength": 128
         },
         "description": {
@@ -46,7 +46,8 @@
         },
         "category": {
           "type": "string",
-          "description": "Category for organization",
+          "description": "Category for organization and filtering (kebab-case for URL/UI stability)",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
           "maxLength": 64
         },
         "inputs": {
@@ -54,21 +55,24 @@
           "description": "Input parameters this capability accepts",
           "items": {
             "$ref": "#/$defs/parameterDefinition"
-          }
+          },
+          "default": []
         },
         "outputs": {
           "type": "array",
           "description": "Output artifacts this capability produces",
           "items": {
             "$ref": "#/$defs/parameterDefinition"
-          }
+          },
+          "default": []
         },
         "requirements": {
           "type": "array",
-          "description": "Other capabilities this one depends on",
+          "description": "Other capabilities this one depends on (forms a 'tech tree')",
           "items": {
             "$ref": "#/$defs/capabilityRequirement"
-          }
+          },
+          "default": []
         }
       },
       "additionalProperties": false
@@ -80,7 +84,7 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "Parameter name",
+          "description": "Parameter name (programming identifier style for codegen compatibility)",
           "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
           "maxLength": 64
         },
@@ -101,6 +105,29 @@
         },
         "default": {
           "description": "Default value if not provided"
+        },
+        "format": {
+          "type": "string",
+          "description": "Format hint for strings (e.g., 'uri', 'email', 'date-time', 'uuid')",
+          "enum": ["uri", "email", "date-time", "date", "time", "uuid", "hostname", "ipv4", "ipv6", "regex"]
+        },
+        "enum": {
+          "type": "array",
+          "description": "Allowed values (for constrained inputs)",
+          "items": {},
+          "minItems": 1
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Element type for array parameters",
+          "enum": ["string", "number", "boolean", "object"]
+        },
+        "properties": {
+          "type": "object",
+          "description": "Property definitions for object parameters",
+          "additionalProperties": {
+            "$ref": "#/$defs/parameterDefinition"
+          }
         }
       },
       "additionalProperties": false
@@ -108,16 +135,23 @@
     "capabilityRequirement": {
       "type": "object",
       "description": "A required capability dependency",
-      "required": ["capability"],
+      "required": ["name"],
       "properties": {
-        "capability": {
+        "name": {
           "type": "string",
-          "description": "Name of the required capability",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          "description": "Name of the required capability (must match target's metadata.name)",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
+        },
+        "namespace": {
+          "type": "string",
+          "description": "Namespace of the required capability. Defaults to the referring capability's namespace.",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 63
         },
         "optional": {
           "type": "boolean",
-          "description": "Whether this requirement is optional",
+          "description": "Whether this requirement is optional (resolved if available, doesn't block if absent)",
           "default": false
         }
       },
@@ -143,6 +177,27 @@
           "type": "integer",
           "description": "The generation observed by the controller",
           "minimum": 0
+        },
+        "replacement": {
+          "type": "object",
+          "description": "Reference to replacement capability (when phase is Deprecated)",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the replacement capability",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            },
+            "namespace": {
+              "type": "string",
+              "description": "Namespace of the replacement capability",
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+            }
+          }
+        },
+        "deprecationMessage": {
+          "type": "string",
+          "description": "Message explaining deprecation reason and migration path",
+          "maxLength": 1024
         }
       },
       "additionalProperties": false

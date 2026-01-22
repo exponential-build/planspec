@@ -104,7 +104,7 @@ spec:
       type: object
       description: "Summary of changes made"
   requirements:
-    - capability: code-analysis
+    - name: code-analysis
       optional: true
 ---
 # Test Generation Capability
@@ -280,9 +280,9 @@ spec:
       type: array
       description: "Improvement suggestions"
   requirements:
-    - capability: code-analysis
+    - name: code-analysis
       optional: true
-    - capability: security-scan
+    - name: security-scan
       optional: true
 ---
 # Refactoring Capability
@@ -316,6 +316,6 @@ spec:
       type: string
       description: "Explanation of changes made"
   requirements:
-    - capability: code-analysis
-    - capability: test-execution
+    - name: code-analysis
+    - name: test-execution
       optional: true
