@@ -190,6 +190,54 @@ impl Client {
         self.handle_response(response).await
     }
 
+    /// Get a single namespace
+    pub async fn get_namespace(&self, name: &str) -> Result<Value> {
+        let url = format!("{}/namespaces/{}", self.base_url(), name);
+
+        let response = self
+            .http
+            .get(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
+        self.handle_response(response).await
+    }
+
+    /// Create a namespace
+    pub async fn create_namespace(&self, name: &str) -> Result<Value> {
+        let url = format!("{}/namespaces", self.base_url());
+
+        let body = serde_json::json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": name
+            }
+        });
+
+        let response = self
+            .http
+            .post(&url)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to send request")?;
+        self.handle_response(response).await
+    }
+
+    /// Delete a namespace
+    pub async fn delete_namespace(&self, name: &str) -> Result<Value> {
+        let url = format!("{}/namespaces/{}", self.base_url(), name);
+
+        let response = self
+            .http
+            .delete(&url)
+            .send()
+            .await
+            .context("Failed to send request")?;
+        self.handle_response(response).await
+    }
+
     /// Get a plan's graph
     pub async fn get_graph(&self, name: &str, namespace: Option<&str>) -> Result<Value> {
         let default_ns = self.config.namespace();

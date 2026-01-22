@@ -15,6 +15,34 @@ use planspec_core::Validator;
 
 use crate::AppState;
 
+/// Populate Goal status with initial phase
+fn populate_goal_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set (allow client to override)
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Pending");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Accepted",
+            "status": "True",
+            "reason": "GoalCreated",
+            "message": "Goal has been accepted",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
 /// Populate Plan status with phase, nodeCount, and validation condition
 fn populate_plan_status(body: &mut Value, generation: i64) {
     let node_count = body
@@ -44,6 +72,102 @@ fn populate_plan_status(body: &mut Value, generation: i64) {
         "lastTransitionTime": now,
         "observedGeneration": generation
     }]);
+}
+
+/// Populate Execution status with initial phase
+fn populate_execution_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Pending");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Accepted",
+            "status": "True",
+            "reason": "ExecutionCreated",
+            "message": "Execution has been accepted and is pending",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate Capability status with initial phase
+fn populate_capability_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Available");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Available",
+            "status": "True",
+            "reason": "CapabilityRegistered",
+            "message": "Capability is available for use",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate Binding status with initial phase
+fn populate_binding_status(body: &mut Value, generation: i64) {
+    let now = chrono::Utc::now().to_rfc3339();
+
+    // Initialize status if not present
+    if body.get("status").is_none() {
+        body["status"] = json!({});
+    }
+
+    // Only set phase if not already set
+    if body["status"].get("phase").is_none() {
+        body["status"]["phase"] = json!("Unresolved");
+    }
+    body["status"]["observedGeneration"] = json!(generation);
+
+    // Add initial condition if no conditions exist
+    if body["status"].get("conditions").is_none() {
+        body["status"]["conditions"] = json!([{
+            "type": "Resolved",
+            "status": "False",
+            "reason": "BindingCreated",
+            "message": "Binding created, resolution pending",
+            "lastTransitionTime": now,
+            "observedGeneration": generation
+        }]);
+    }
+}
+
+/// Populate resource status based on kind
+fn populate_resource_status(body: &mut Value, kind: &str, generation: i64) {
+    match kind {
+        "Goal" => populate_goal_status(body, generation),
+        "Plan" => populate_plan_status(body, generation),
+        "Execution" => populate_execution_status(body, generation),
+        "Capability" => populate_capability_status(body, generation),
+        "Binding" => populate_binding_status(body, generation),
+        _ => {}
+    }
 }
 
 /// Map resource type from URL to Kind
@@ -96,7 +220,7 @@ pub async fn list(
     })))
 }
 
-/// List all namespaces that contain resources
+/// List all namespaces
 pub async fn list_namespaces(
     State(state): State<AppState>,
 ) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
@@ -120,7 +244,10 @@ pub async fn list_namespaces(
                 "apiVersion": "planspec.io/v1alpha1",
                 "kind": "Namespace",
                 "metadata": {
-                    "name": ns
+                    "name": ns.name,
+                    "uid": ns.uid,
+                    "resourceVersion": ns.resource_version.to_string(),
+                    "creationTimestamp": ns.created_at.to_rfc3339()
                 }
             })
         })
@@ -131,6 +258,158 @@ pub async fn list_namespaces(
         "kind": "NamespaceList",
         "items": items
     })))
+}
+
+/// Get a single namespace
+pub async fn get_namespace(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let ns = state.store.get_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    match ns {
+        Some(ns) => Ok(Json(json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": ns.name,
+                "uid": ns.uid,
+                "resourceVersion": ns.resource_version.to_string(),
+                "creationTimestamp": ns.created_at.to_rfc3339()
+            }
+        }))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' not found", name),
+                "reason": "NotFound",
+                "code": 404
+            })),
+        )),
+    }
+}
+
+/// Create a namespace
+pub async fn create_namespace(
+    State(state): State<AppState>,
+    Json(body): Json<Value>,
+) -> Result<(StatusCode, Json<Value>), (StatusCode, Json<Value>)> {
+    let name = body
+        .get("metadata")
+        .and_then(|m| m.get("name"))
+        .and_then(|n| n.as_str())
+        .ok_or_else(|| {
+            (
+                StatusCode::BAD_REQUEST,
+                Json(json!({
+                    "kind": "Status",
+                    "status": "Failure",
+                    "message": "metadata.name is required",
+                    "reason": "Invalid",
+                    "code": 400
+                })),
+            )
+        })?
+        .to_string();
+
+    // Check if already exists
+    if state.store.namespace_exists(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })? {
+        return Err((
+            StatusCode::CONFLICT,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' already exists", name),
+                "reason": "AlreadyExists",
+                "code": 409
+            })),
+        ));
+    }
+
+    let ns = state.store.create_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Namespace",
+            "metadata": {
+                "name": ns.name,
+                "uid": ns.uid,
+                "resourceVersion": ns.resource_version.to_string(),
+                "creationTimestamp": ns.created_at.to_rfc3339()
+            }
+        })),
+    ))
+}
+
+/// Delete a namespace and all its resources
+pub async fn delete_namespace(
+    State(state): State<AppState>,
+    Path(name): Path<String>,
+) -> Result<Json<Value>, (StatusCode, Json<Value>)> {
+    let result = state.store.delete_namespace(&name).await.map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": e.to_string(),
+                "code": 500
+            })),
+        )
+    })?;
+
+    match result {
+        Some(_) => Ok(Json(json!({
+            "kind": "Status",
+            "status": "Success",
+            "message": format!("Namespace '{}' deleted", name),
+            "code": 200
+        }))),
+        None => Err((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "kind": "Status",
+                "status": "Failure",
+                "message": format!("Namespace '{}' not found", name),
+                "reason": "NotFound",
+                "code": 404
+            })),
+        )),
+    }
 }
 
 /// List resources across all namespaces
@@ -243,10 +522,8 @@ pub async fn create(
         metadata.insert("namespace".to_string(), Value::String(namespace.clone()));
     }
 
-    // Populate status for Plans (generation 1 for new resources)
-    if kind == "Plan" {
-        populate_plan_status(&mut body, 1);
-    }
+    // Populate status for all resource types (generation 1 for new resources)
+    populate_resource_status(&mut body, kind, 1);
 
     let name = body
         .get("metadata")
@@ -265,6 +542,23 @@ pub async fn create(
             )
         })?
         .to_string();
+
+    // Auto-create namespace if it doesn't exist (idempotent, race-safe)
+    state
+        .store
+        .ensure_namespace(&namespace)
+        .await
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "kind": "Status",
+                    "status": "Failure",
+                    "message": e.to_string(),
+                    "code": 500
+                })),
+            )
+        })?;
 
     // Check if already exists
     if state
@@ -379,12 +673,10 @@ pub async fn replace(
         .map(|obj| obj.generation)
         .unwrap_or(1);
 
-    // Populate status for Plans (generation may increment on spec change)
-    if kind == "Plan" {
-        // Check if spec changed - if so, generation will be incremented
-        let new_generation = existing_generation + 1; // Assume it might change
-        populate_plan_status(&mut body, new_generation);
-    }
+    // Populate status for all resource types (generation may increment on spec change)
+    // Note: existing phase from incoming body is preserved if set
+    let new_generation = existing_generation + 1; // Assume it might change
+    populate_resource_status(&mut body, kind, new_generation);
 
     let (stored, event) = state
         .store

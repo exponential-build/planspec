@@ -1,0 +1,214 @@
+# Plan: CLI Batch Operations and Edit Command
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: cli-batch-edit-features
+  namespace: planspec
+  labels:
+    component: cli
+    planspec.io/goal: cli-batch-edit-features
+spec:
+  goalRef:
+    name: cli-batch-edit-features
+    namespace: planspec
+  description: "Implementation plan for CLI batch operations and edit command"
+
+  graph:
+    nodes:
+      # Phase 1: Batch Directory Support
+      - id: update-clap-args
+        kind: Task
+        name: Add directory flag to CLI argument structs
+        description: |
+          Update main.rs to add -d/--directory and -R/--recursive flags to Apply,
+          Validate, and Delete commands. Make -f and -d mutually exclusive.
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+
+      - id: implement-dir-scanner
+        kind: Task
+        name: Implement directory file scanner utility
+        description: |
+          Create a shared utility function in commands/mod.rs or a new utils module:
+          - scan_directory(path, recursive) -> Result<Vec<PathBuf>>
+          - Filter for *.yaml and *.yml extensions
+          - Sort paths for deterministic ordering
+          - Handle permission errors gracefully
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+
+      - id: refactor-apply-for-batch
+        kind: Task
+        name: Refactor apply command for batch support
+        description: |
+          Modify apply.rs to:
+          - Accept either file or directory input
+          - Process multiple files, collecting results
+          - Report summary: N succeeded, M failed
+          - Continue on error (fail-open), collect all errors
+          - Show per-file status during processing
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-clap-args
+          - implement-dir-scanner
+
+      - id: refactor-validate-for-batch
+        kind: Task
+        name: Refactor validate command for batch support
+        description: |
+          Modify validate.rs to support directory input with same pattern as apply.
+          Validate is simpler (offline only), but should follow same UX patterns.
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+        dependsOn:
+          - update-clap-args
+          - implement-dir-scanner
+
+      - id: refactor-delete-for-batch
+        kind: Task
+        name: Refactor delete command for batch support
+        description: |
+          Modify delete.rs to support directory input. Delete currently works by
+          resource type + name. For directory mode:
+          - Parse each file to extract kind + metadata.name
+          - Delete each resource found
+          - Handle already-deleted gracefully (idempotent)
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-clap-args
+          - implement-dir-scanner
+
+      - id: test-batch-operations
+        kind: Task
+        name: Add tests for batch operations
+        description: |
+          Add integration tests for directory scanning and batch operations.
+          Test cases:
+          - Empty directory
+          - Mixed valid/invalid files
+          - Recursive vs non-recursive
+          - Permission errors
+        capabilities:
+          - test-generation
+        estimatedEffort: medium
+        dependsOn:
+          - refactor-apply-for-batch
+          - refactor-validate-for-batch
+          - refactor-delete-for-batch
+
+      # Phase 2: Edit Command
+      - id: add-edit-command-struct
+        kind: Task
+        name: Add edit command to CLI
+        description: |
+          Add Edit variant to Commands enum in main.rs with arguments:
+          - resource: String (positional)
+          - name: String (positional)
+          - --editor: Option<String>
+          - --diff: bool (show diff before applying)
+          Route to new commands/edit.rs module.
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+
+      - id: implement-edit-command
+        kind: Task
+        name: Implement edit command logic
+        description: |
+          Create commands/edit.rs with full edit workflow:
+          1. GET resource from server
+          2. Strip status, managedFields, creationTimestamp
+          3. Write to temp file as YAML
+          4. Open $EDITOR/$VISUAL/vi on temp file
+          5. On save: read back, validate locally, show diff
+          6. If valid: PUT/apply to server
+          7. If invalid: prompt to re-edit or abort
+          8. Handle resourceVersion conflicts (re-fetch and merge)
+
+          Dependencies: tempfile crate for secure temp files.
+        capabilities:
+          - code-generation
+        estimatedEffort: large
+        dependsOn:
+          - add-edit-command-struct
+
+      - id: add-tempfile-dep
+        kind: Task
+        name: Add tempfile dependency to Cargo.toml
+        description: |
+          Add tempfile = "3" to cli/Cargo.toml dependencies for secure
+          temporary file handling in the edit command.
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+
+      - id: test-edit-command
+        kind: Task
+        name: Add tests for edit command
+        description: |
+          Add tests for edit command:
+          - Mock editor (use cat or echo for testing)
+          - Validation failure handling
+          - Conflict detection
+          - Field stripping logic
+        capabilities:
+          - test-generation
+        estimatedEffort: medium
+        dependsOn:
+          - implement-edit-command
+
+      # Final Phase
+      - id: update-docs
+        kind: Task
+        name: Update CLI documentation
+        description: |
+          Update README and help text to document:
+          - New -d/--directory flag usage
+          - New -R/--recursive flag
+          - planspec edit command usage
+          - Examples for common workflows
+        capabilities:
+          - documentation
+        estimatedEffort: small
+        dependsOn:
+          - test-batch-operations
+          - test-edit-command
+
+    edges:
+      # Batch operations dependencies
+      - from: update-clap-args
+        to: implement-dir-scanner
+      - from: implement-dir-scanner
+        to: refactor-apply-for-batch
+      - from: implement-dir-scanner
+        to: refactor-validate-for-batch
+      - from: implement-dir-scanner
+        to: refactor-delete-for-batch
+      - from: refactor-apply-for-batch
+        to: test-batch-operations
+      - from: refactor-validate-for-batch
+        to: test-batch-operations
+      - from: refactor-delete-for-batch
+        to: test-batch-operations
+
+      # Edit command dependencies
+      - from: add-edit-command-struct
+        to: implement-edit-command
+      - from: add-tempfile-dep
+        to: implement-edit-command
+      - from: implement-edit-command
+        to: test-edit-command
+
+      # Final documentation depends on both tracks
+      - from: test-batch-operations
+        to: update-docs
+      - from: test-edit-command
+        to: update-docs

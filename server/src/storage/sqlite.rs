@@ -75,7 +75,29 @@ impl Store {
         .await
         .context("Failed to initialize revision counter")?;
 
-        Ok(Self { pool })
+        // Create namespaces table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS namespaces (
+                name TEXT PRIMARY KEY,
+                uid TEXT NOT NULL,
+                resource_version INTEGER NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            "#,
+        )
+        .execute(&pool)
+        .await
+        .context("Failed to initialize namespaces table")?;
+
+        let store = Self { pool };
+
+        // Ensure "default" namespace always exists
+        if !store.namespace_exists("default").await? {
+            store.create_namespace("default").await?;
+        }
+
+        Ok(store)
     }
 
     /// Get the next revision number (atomically increments)
@@ -394,18 +416,166 @@ impl Store {
         }))
     }
 
-    /// List all unique namespaces that contain resources
-    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
-        let rows: Vec<(String,)> = sqlx::query_as(
+    /// Create a namespace (fails if already exists)
+    pub async fn create_namespace(&self, name: &str) -> Result<NamespaceInfo> {
+        let now = Utc::now();
+        let uid = Uuid::new_v4().to_string();
+        let resource_version = self.next_revision().await?;
+
+        sqlx::query(
             r#"
-            SELECT DISTINCT namespace
-            FROM resources
-            ORDER BY namespace
+            INSERT INTO namespaces (name, uid, resource_version, created_at)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(name)
+        .bind(&uid)
+        .bind(resource_version)
+        .bind(now.to_rfc3339())
+        .execute(&self.pool)
+        .await
+        .context("Failed to create namespace")?;
+
+        Ok(NamespaceInfo {
+            name: name.to_string(),
+            uid,
+            resource_version,
+            created_at: now,
+        })
+    }
+
+    /// Ensure a namespace exists, creating it if needed (idempotent, race-safe)
+    pub async fn ensure_namespace(&self, name: &str) -> Result<NamespaceInfo> {
+        let now = Utc::now();
+        let uid = Uuid::new_v4().to_string();
+        let resource_version = self.next_revision().await?;
+
+        // Use INSERT OR IGNORE to handle concurrent creation attempts
+        sqlx::query(
+            r#"
+            INSERT OR IGNORE INTO namespaces (name, uid, resource_version, created_at)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(name)
+        .bind(&uid)
+        .bind(resource_version)
+        .bind(now.to_rfc3339())
+        .execute(&self.pool)
+        .await
+        .context("Failed to ensure namespace")?;
+
+        // Return the namespace (either just created or already existing)
+        self.get_namespace(name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Namespace should exist after ensure"))
+    }
+
+    /// Get a namespace by name
+    pub async fn get_namespace(&self, name: &str) -> Result<Option<NamespaceInfo>> {
+        let row: Option<(String, String, i64, String)> = sqlx::query_as(
+            r#"
+            SELECT name, uid, resource_version, created_at
+            FROM namespaces
+            WHERE name = ?
+            "#,
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        match row {
+            Some((name, uid, rv, created)) => Ok(Some(NamespaceInfo {
+                name,
+                uid,
+                resource_version: rv,
+                created_at: chrono::DateTime::parse_from_rfc3339(&created)?.with_timezone(&Utc),
+            })),
+            None => Ok(None),
+        }
+    }
+
+    /// List all namespaces
+    pub async fn list_namespaces(&self) -> Result<Vec<NamespaceInfo>> {
+        let rows: Vec<(String, String, i64, String)> = sqlx::query_as(
+            r#"
+            SELECT name, uid, resource_version, created_at
+            FROM namespaces
+            ORDER BY name
             "#,
         )
         .fetch_all(&self.pool)
         .await?;
 
-        Ok(rows.into_iter().map(|(ns,)| ns).collect())
+        rows.into_iter()
+            .map(|(name, uid, rv, created)| {
+                Ok(NamespaceInfo {
+                    name,
+                    uid,
+                    resource_version: rv,
+                    created_at: chrono::DateTime::parse_from_rfc3339(&created)?.with_timezone(&Utc),
+                })
+            })
+            .collect()
     }
+
+    /// Delete a namespace and all its resources (cascade delete)
+    pub async fn delete_namespace(&self, name: &str) -> Result<Option<i64>> {
+        // Check if namespace exists
+        let existing = self.get_namespace(name).await?;
+        if existing.is_none() {
+            return Ok(None);
+        }
+
+        let resource_version = self.next_revision().await?;
+
+        // Delete all resources in the namespace
+        sqlx::query(
+            r#"
+            DELETE FROM resources
+            WHERE namespace = ?
+            "#,
+        )
+        .bind(name)
+        .execute(&self.pool)
+        .await
+        .context("Failed to delete resources in namespace")?;
+
+        // Delete the namespace
+        sqlx::query(
+            r#"
+            DELETE FROM namespaces
+            WHERE name = ?
+            "#,
+        )
+        .bind(name)
+        .execute(&self.pool)
+        .await
+        .context("Failed to delete namespace")?;
+
+        Ok(Some(resource_version))
+    }
+
+    /// Check if a namespace exists
+    pub async fn namespace_exists(&self, name: &str) -> Result<bool> {
+        let row: Option<(i32,)> = sqlx::query_as(
+            r#"
+            SELECT 1 FROM namespaces WHERE name = ?
+            "#,
+        )
+        .bind(name)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        Ok(row.is_some())
+    }
+}
+
+/// Information about a namespace
+#[derive(Debug, Clone)]
+pub struct NamespaceInfo {
+    pub name: String,
+    pub uid: String,
+    pub resource_version: i64,
+    pub created_at: chrono::DateTime<Utc>,
 }
