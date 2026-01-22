@@ -30,11 +30,24 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Apply resources from a file
+    /// Apply resources from a file or directory
+    #[command(group(
+        clap::ArgGroup::new("input")
+            .required(true)
+            .args(["file", "directory"]),
+    ))]
     Apply {
         /// File containing resources to apply
         #[arg(short, long)]
-        file: String,
+        file: Option<String>,
+
+        /// Directory containing YAML files to apply
+        #[arg(short, long)]
+        directory: Option<String>,
+
+        /// Recursively process subdirectories (only with -d)
+        #[arg(short = 'R', long, requires = "directory")]
+        recursive: bool,
 
         /// Dry run mode - validate without applying
         #[arg(long)]
@@ -71,13 +84,31 @@ enum Commands {
         name: String,
     },
 
-    /// Delete a resource
+    /// Delete a resource or resources from a file/directory
+    #[command(group(
+        clap::ArgGroup::new("target")
+            .required(true)
+            .args(["resource", "file", "directory"]),
+    ))]
     Delete {
         /// Resource type (goal, plan, capability, binding, execution, namespace)
-        resource: String,
+        resource: Option<String>,
 
-        /// Resource name
-        name: String,
+        /// Resource name (required when using resource type)
+        #[arg(requires = "resource")]
+        name: Option<String>,
+
+        /// File containing resources to delete
+        #[arg(short, long)]
+        file: Option<String>,
+
+        /// Directory containing YAML files with resources to delete
+        #[arg(short, long)]
+        directory: Option<String>,
+
+        /// Recursively process subdirectories (only with -d)
+        #[arg(short = 'R', long, requires = "directory")]
+        recursive: bool,
     },
 
     /// Create a resource (currently only namespace is supported)
@@ -90,10 +121,23 @@ enum Commands {
     },
 
     /// Validate resources against JSON schema (offline)
+    #[command(group(
+        clap::ArgGroup::new("input")
+            .required(true)
+            .args(["file", "directory"]),
+    ))]
     Validate {
         /// File containing resources to validate
         #[arg(short, long)]
-        file: String,
+        file: Option<String>,
+
+        /// Directory containing YAML files to validate
+        #[arg(short, long)]
+        directory: Option<String>,
+
+        /// Recursively process subdirectories (only with -d)
+        #[arg(short = 'R', long, requires = "directory")]
+        recursive: bool,
     },
 
     /// Watch for changes to resources
@@ -122,6 +166,19 @@ enum Commands {
         #[arg(long, default_value = "text")]
         format: String,
     },
+
+    /// Edit a resource in your editor (like kubectl edit)
+    Edit {
+        /// Resource type (goal, plan, capability, binding, execution)
+        resource: String,
+
+        /// Resource name
+        name: String,
+
+        /// Editor to use (defaults to $EDITOR, $VISUAL, or vi)
+        #[arg(long, env = "EDITOR")]
+        editor: Option<String>,
+    },
 }
 
 #[tokio::main]
@@ -134,9 +191,12 @@ async fn main() -> Result<()> {
     };
 
     match cli.command {
-        Commands::Apply { file, dry_run } => {
-            commands::apply::run(&config, &file, dry_run, &cli.output).await
-        }
+        Commands::Apply {
+            file,
+            directory,
+            recursive,
+            dry_run,
+        } => commands::apply::run(&config, file, directory, recursive, dry_run, &cli.output).await,
         Commands::Get {
             resource,
             name,
@@ -158,13 +218,21 @@ async fn main() -> Result<()> {
         Commands::Describe { resource, name } => {
             commands::describe::run(&config, &resource, &name, &cli.output).await
         }
-        Commands::Delete { resource, name } => {
-            commands::delete::run(&config, &resource, &name).await
-        }
+        Commands::Delete {
+            resource,
+            name,
+            file,
+            directory,
+            recursive,
+        } => commands::delete::run(&config, resource, name, file, directory, recursive).await,
         Commands::Create { resource, name } => {
             commands::create::run(&config, &resource, &name).await
         }
-        Commands::Validate { file } => commands::validate::run(&file, &cli.output),
+        Commands::Validate {
+            file,
+            directory,
+            recursive,
+        } => commands::validate::run(file, directory, recursive, &cli.output),
         Commands::Watch { resource, selector } => {
             commands::watch::run(&config, &resource, selector, &cli.output).await
         }
@@ -172,5 +240,10 @@ async fn main() -> Result<()> {
         Commands::Graph { name, format } => {
             commands::graph::run(&config, &name, &format, &cli.output).await
         }
+        Commands::Edit {
+            resource,
+            name,
+            editor,
+        } => commands::edit::run(&config, &resource, &name, editor, &cli.output).await,
     }
 }

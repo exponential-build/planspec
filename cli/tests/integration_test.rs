@@ -337,17 +337,17 @@ spec:
     }
 
     #[test]
-    fn test_apply_bundle() {
-        let bundle_path = "docs/planspec/fixtures/v0.1.0/bundle.yaml";
-        if !std::path::Path::new(bundle_path).exists() {
-            eprintln!("Skipping bundle test: {} not found", bundle_path);
+    fn test_apply_directory() {
+        let planspec_dir = "docs/planspec";
+        if !std::path::Path::new(planspec_dir).exists() {
+            eprintln!("Skipping directory test: {} not found", planspec_dir);
             return;
         }
 
-        let output = run_cli(&["apply", "-f", bundle_path]);
+        let output = run_cli(&["apply", "-d", planspec_dir, "-R"]);
         assert!(
             output.status.success(),
-            "Apply bundle should succeed: {}",
+            "Apply directory should succeed: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
@@ -710,17 +710,17 @@ spec:
     }
 
     #[test]
-    fn test_validate_bundle() {
-        let bundle_path = "docs/planspec/fixtures/v0.1.0/bundle.yaml";
-        if !std::path::Path::new(bundle_path).exists() {
-            eprintln!("Skipping: {} not found", bundle_path);
+    fn test_validate_directory() {
+        let planspec_dir = "docs/planspec";
+        if !std::path::Path::new(planspec_dir).exists() {
+            eprintln!("Skipping: {} not found", planspec_dir);
             return;
         }
 
-        let output = run_cli_offline(&["validate", "-f", bundle_path]);
+        let output = run_cli_offline(&["validate", "-d", planspec_dir, "-R"]);
         assert!(
             output.status.success(),
-            "Bundle validation should pass: {}",
+            "Directory validation should pass: {}",
             String::from_utf8_lossy(&output.stderr)
         );
     }
