@@ -543,10 +543,10 @@ pub async fn create(
         })?
         .to_string();
 
-    // Auto-create namespace if it doesn't exist
-    if !state
+    // Auto-create namespace if it doesn't exist (idempotent, race-safe)
+    state
         .store
-        .namespace_exists(&namespace)
+        .ensure_namespace(&namespace)
         .await
         .map_err(|e| {
             (
@@ -558,24 +558,7 @@ pub async fn create(
                     "code": 500
                 })),
             )
-        })?
-    {
-        state
-            .store
-            .create_namespace(&namespace)
-            .await
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "kind": "Status",
-                        "status": "Failure",
-                        "message": e.to_string(),
-                        "code": 500
-                    })),
-                )
-            })?;
-    }
+        })?;
 
     // Check if already exists
     if state

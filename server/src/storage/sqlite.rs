@@ -416,7 +416,7 @@ impl Store {
         }))
     }
 
-    /// Create a namespace
+    /// Create a namespace (fails if already exists)
     pub async fn create_namespace(&self, name: &str) -> Result<NamespaceInfo> {
         let now = Utc::now();
         let uid = Uuid::new_v4().to_string();
@@ -442,6 +442,33 @@ impl Store {
             resource_version,
             created_at: now,
         })
+    }
+
+    /// Ensure a namespace exists, creating it if needed (idempotent, race-safe)
+    pub async fn ensure_namespace(&self, name: &str) -> Result<NamespaceInfo> {
+        let now = Utc::now();
+        let uid = Uuid::new_v4().to_string();
+        let resource_version = self.next_revision().await?;
+
+        // Use INSERT OR IGNORE to handle concurrent creation attempts
+        sqlx::query(
+            r#"
+            INSERT OR IGNORE INTO namespaces (name, uid, resource_version, created_at)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(name)
+        .bind(&uid)
+        .bind(resource_version)
+        .bind(now.to_rfc3339())
+        .execute(&self.pool)
+        .await
+        .context("Failed to ensure namespace")?;
+
+        // Return the namespace (either just created or already existing)
+        self.get_namespace(name)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Namespace should exist after ensure"))
     }
 
     /// Get a namespace by name
