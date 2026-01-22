@@ -53,7 +53,8 @@ pub use types::execution::{
     Artifact, Execution, ExecutionPhase, ExecutionSpec, ExecutionStatus, NodePhase, NodeStatus,
 };
 pub use types::gate::{
-    Gate, GatePhase, GateSpec, GateStatus, GateType, Resolution, ReviewAction, ReviewActionType,
+    Gate, GatePhase, GateSpec, GateStatus, GateType, Resolution, ResolutionOutcome, ReviewAction,
+    ReviewActionType, TargetRef,
 };
 pub use types::goal::{AcceptanceCriterion, Goal, GoalPhase, GoalSpec, GoalStatus, LabelSelector};
 pub use types::meta::{Condition, ConditionStatus, ObjectMeta, ObjectReference, OwnerReference};

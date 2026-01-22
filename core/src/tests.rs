@@ -67,10 +67,10 @@ mod serialization {
     fn gate_round_trip() {
         let gate = Gate::new("my-gate", "default")
             .with_gate_type(GateType::Approval)
+            .with_target_ref(TargetRef::execution("my-execution").with_node_id("deploy"))
             .with_description("Test approval gate")
             .with_reviewer("admin@example.com")
-            .with_required_approvers(1)
-            .with_timeout("24h");
+            .with_required_approvers(1);
 
         let json = serde_json::to_string(&gate).unwrap();
         let parsed: Gate = serde_json::from_str(&json).unwrap();
@@ -319,10 +319,14 @@ mod validation {
             },
             "spec": {
                 "gateType": "approval",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution",
+                    "nodeId": "deploy"
+                },
                 "description": "Requires approval before proceeding",
                 "reviewers": ["admin@example.com"],
-                "requiredApprovers": 1,
-                "timeout": "24h"
+                "requiredApprovers": 1
             }
         });
 
@@ -341,6 +345,10 @@ mod validation {
             },
             "spec": {
                 "gateType": "invalid-type",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution"
+                },
                 "description": "Should fail validation"
             }
         });

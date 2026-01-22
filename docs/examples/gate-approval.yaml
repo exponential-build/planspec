@@ -11,6 +11,10 @@ metadata:
     team: platform
 spec:
   gateType: approval
+  targetRef:
+    kind: Execution
+    name: deploy-to-production
+    nodeId: deploy-step
   description: |
     Approval required before deploying to production.
     Please verify:
@@ -21,7 +25,6 @@ spec:
     - tech-lead@example.com
     - ops-team@example.com
   requiredApprovers: 1
-  timeout: 24h
-  metadata:
+  context:
     deploymentTarget: production
     prNumber: "123"

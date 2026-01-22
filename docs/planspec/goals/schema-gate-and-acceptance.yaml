@@ -14,7 +14,7 @@ metadata:
 spec:
   description: |
     Add Gate as a first-class resource and structured acceptance criteria for Task nodes,
-    enabling human-in-the-loop workflows and machine-verifiable task completion.
+    enabling explicit approval workflows and machine-verifiable task completion.
 
   objectives:
     - id: gate-resource
@@ -62,7 +62,7 @@ spec:
 
         ### Gate Lifecycle States
         - **Pending**: Gate created but not yet active in any execution
-        - **Waiting**: Execution reached gate node, awaiting reviewer action
+        - **Waiting**: Execution reached gate node, awaiting resolution
         - **Approved**: Reviewer(s) approved, execution can proceed
         - **Rejected**: Reviewer(s) rejected, execution should fail/halt
         - **ChangesRequested**: Reviewer requested changes, may re-review after updates
@@ -73,8 +73,9 @@ spec:
            - artifact_exists, test_passes, endpoint_responds, command_succeeds
         2. **Behavioral (custom)**: Domain-specific validation via webhooks
            - Allows integration with external quality gates, security scanners, etc.
-        3. **Human (gate)**: Explicit human approval for non-automatable review
+        3. **Explicit (gate)**: Approval checkpoints requiring explicit pass/reject decision
            - Links to Gate resources for full audit trail
+           - v1 focuses on human reviewers; model supports future policy-based automation
 
         ### Validation Timing
         - Acceptance criteria are evaluated when a Task transitions to "completed"

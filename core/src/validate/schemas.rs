@@ -469,11 +469,23 @@ pub const GATE_SCHEMA: &str = r#"
     },
     "spec": {
       "type": "object",
-      "required": ["gateType"],
+      "required": ["gateType", "targetRef"],
       "properties": {
         "gateType": {
           "type": "string",
           "enum": ["approval", "review", "sign-off"]
+        },
+        "targetRef": {
+          "type": "object",
+          "required": ["kind", "name"],
+          "properties": {
+            "apiVersion": { "type": "string" },
+            "kind": { "type": "string", "pattern": "^[A-Z][a-zA-Z0-9]*$" },
+            "name": { "type": "string" },
+            "namespace": { "type": "string" },
+            "uid": { "type": "string" },
+            "nodeId": { "type": "string" }
+          }
         },
         "description": {
           "type": "string"
@@ -486,10 +498,7 @@ pub const GATE_SCHEMA: &str = r#"
           "type": "integer",
           "minimum": 1
         },
-        "timeout": {
-          "type": "string"
-        },
-        "metadata": {
+        "context": {
           "type": "object"
         }
       }
@@ -499,7 +508,7 @@ pub const GATE_SCHEMA: &str = r#"
       "properties": {
         "phase": {
           "type": "string",
-          "enum": ["Pending", "Waiting", "Approved", "Rejected", "ChangesRequested", "Expired"]
+          "enum": ["Pending", "Waiting", "Approved", "Rejected"]
         },
         "conditions": {
           "type": "array"
@@ -508,9 +517,19 @@ pub const GATE_SCHEMA: &str = r#"
           "type": "array"
         },
         "resolution": {
-          "type": "object"
+          "type": "object",
+          "required": ["outcome", "timestamp"],
+          "properties": {
+            "outcome": { "type": "string", "enum": ["approved", "rejected"] },
+            "actors": { "type": "array", "items": { "type": "string" } },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "comment": { "type": "string" }
+          }
         },
         "observedGeneration": {
+          "type": "integer"
+        },
+        "decidedGeneration": {
           "type": "integer"
         }
       }
