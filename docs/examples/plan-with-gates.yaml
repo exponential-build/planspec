@@ -1,0 +1,73 @@
+# Example: Plan with gate nodes
+# Demonstrates using gateRef to reference Gate resources
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: deploy-with-approval
+  namespace: default
+spec:
+  description: "Deploy to production with approval gate"
+  graph:
+    nodes:
+      - id: build
+        kind: Task
+        name: Build application
+        description: |
+          Build and package the application for deployment
+        capabilities:
+          - code-generation
+
+      - id: test
+        kind: Task
+        name: Run tests
+        description: |
+          Execute all test suites
+        capabilities:
+          - test-execution
+        dependsOn:
+          - build
+
+      - id: security-scan
+        kind: Task
+        name: Security scan
+        description: |
+          Run security vulnerability scan
+        capabilities:
+          - code-analysis
+        dependsOn:
+          - build
+
+      - id: approval
+        kind: Gate
+        name: Production approval
+        description: |
+          Wait for production deployment approval
+        gateRef:
+          name: production-deploy-gate
+          namespace: default
+        dependsOn:
+          - test
+          - security-scan
+
+      - id: deploy
+        kind: Task
+        name: Deploy to production
+        description: |
+          Deploy the application to production environment
+        capabilities:
+          - code-generation
+        dependsOn:
+          - approval
+
+    edges:
+      - from: build
+        to: test
+      - from: build
+        to: security-scan
+      - from: test
+        to: approval
+      - from: security-scan
+        to: approval
+      - from: approval
+        to: deploy

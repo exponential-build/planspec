@@ -8,6 +8,146 @@ use super::context::ContextItem;
 use super::meta::{Condition, ObjectMeta, ObjectReference};
 use crate::API_VERSION;
 
+/// Machine-verifiable acceptance criteria for Task nodes.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AcceptanceCriteria {
+    /// Check that a file or directory exists.
+    ArtifactExists {
+        /// Human-readable name for this criterion.
+        name: String,
+        /// Detailed description of what this criterion validates.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Whether this criterion must pass for task completion.
+        #[serde(default = "default_required")]
+        required: bool,
+        /// File or directory path to check.
+        path: String,
+        /// Optional regex pattern that must match file content.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        content_match: Option<String>,
+    },
+    /// Run tests and check they pass.
+    TestPasses {
+        /// Human-readable name for this criterion.
+        name: String,
+        /// Detailed description of what this criterion validates.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Whether this criterion must pass for task completion.
+        #[serde(default = "default_required")]
+        required: bool,
+        /// Command to run.
+        command: String,
+        /// Arguments to pass to the command.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        args: Vec<String>,
+        /// Expected exit code (default: 0).
+        #[serde(default)]
+        expected_exit_code: i32,
+        /// Maximum execution time (Go duration format).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout: Option<String>,
+    },
+    /// Check that an HTTP endpoint responds correctly.
+    EndpointResponds {
+        /// Human-readable name for this criterion.
+        name: String,
+        /// Detailed description of what this criterion validates.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Whether this criterion must pass for task completion.
+        #[serde(default = "default_required")]
+        required: bool,
+        /// URL to check.
+        url: String,
+        /// HTTP method (default: GET).
+        #[serde(default = "default_method")]
+        method: String,
+        /// Expected HTTP status code (default: 200).
+        #[serde(default = "default_status_code")]
+        expected_status: i32,
+        /// Optional regex pattern that must match response body.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        body_match: Option<String>,
+        /// Maximum wait time (Go duration format).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout: Option<String>,
+    },
+    /// Run a command and check it succeeds.
+    CommandSucceeds {
+        /// Human-readable name for this criterion.
+        name: String,
+        /// Detailed description of what this criterion validates.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Whether this criterion must pass for task completion.
+        #[serde(default = "default_required")]
+        required: bool,
+        /// Command to run.
+        command: String,
+        /// Arguments to pass to the command.
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        args: Vec<String>,
+        /// Expected exit code (default: 0).
+        #[serde(default)]
+        expected_exit_code: i32,
+        /// Optional regex pattern that must match stdout.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        output_match: Option<String>,
+        /// Maximum execution time (Go duration format).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout: Option<String>,
+    },
+    /// Call an external webhook for validation.
+    Custom {
+        /// Human-readable name for this criterion.
+        name: String,
+        /// Detailed description of what this criterion validates.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// Whether this criterion must pass for task completion.
+        #[serde(default = "default_required")]
+        required: bool,
+        /// URL to call for validation.
+        webhook_url: String,
+        /// JSON payload template to send.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        payload: Option<Value>,
+        /// Expected response criteria.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        expected_response: Option<ExpectedResponse>,
+        /// Maximum wait time (Go duration format).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        timeout: Option<String>,
+    },
+}
+
+fn default_required() -> bool {
+    true
+}
+
+fn default_method() -> String {
+    "GET".to_string()
+}
+
+fn default_status_code() -> i32 {
+    200
+}
+
+/// Expected response for custom webhook validation.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExpectedResponse {
+    /// Expected HTTP status code.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<i32>,
+    /// Regex pattern for response body.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_match: Option<String>,
+}
+
 /// Plan represents a directed acyclic graph of work to be executed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -304,12 +444,21 @@ pub struct Node {
     /// Type of node.
     pub kind: NodeKind,
 
+    /// Human-readable name for this node.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
     /// Human-readable description of the work.
-    pub description: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
 
     /// Reference to the capability required for this node.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capability_ref: Option<ObjectReference>,
+
+    /// List of capability names required for this node (shorthand).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
 
     /// Input parameters for this node.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -334,6 +483,32 @@ pub struct Node {
     /// Additional context for executing this node.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub context: Vec<ContextItem>,
+
+    /// Reference to a Gate resource (for Gate nodes).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gate_ref: Option<ObjectReference>,
+
+    /// Machine-verifiable acceptance criteria (for Task nodes).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub acceptance_criteria: Vec<AcceptanceCriteria>,
+
+    /// Estimated effort level.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub estimated_effort: Option<EstimatedEffort>,
+
+    /// List of node IDs this node depends on (alternative to edges).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub depends_on: Vec<String>,
+}
+
+/// Estimated effort level for a node.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum EstimatedEffort {
+    Small,
+    Medium,
+    Large,
+    Xlarge,
 }
 
 impl Node {
@@ -342,14 +517,20 @@ impl Node {
         Self {
             id: id.into(),
             kind: NodeKind::Task,
-            description: description.into(),
+            name: None,
+            description: Some(description.into()),
             capability_ref: None,
+            capabilities: Vec::new(),
             inputs: None,
             outputs: None,
             timeout: None,
             retries: None,
             when: None,
             context: Vec::new(),
+            gate_ref: None,
+            acceptance_criteria: Vec::new(),
+            estimated_effort: None,
+            depends_on: Vec::new(),
         }
     }
 
@@ -358,14 +539,20 @@ impl Node {
         Self {
             id: id.into(),
             kind: NodeKind::Gate,
-            description: description.into(),
+            name: None,
+            description: Some(description.into()),
             capability_ref: None,
+            capabilities: Vec::new(),
             inputs: None,
             outputs: None,
             timeout: None,
             retries: None,
             when: None,
             context: Vec::new(),
+            gate_ref: None,
+            acceptance_criteria: Vec::new(),
+            estimated_effort: None,
+            depends_on: Vec::new(),
         }
     }
 
@@ -378,6 +565,18 @@ impl Node {
     /// Set the when condition for this node.
     pub fn with_when(mut self, condition: impl Into<String>) -> Self {
         self.when = Some(condition.into());
+        self
+    }
+
+    /// Set the gate reference for this node.
+    pub fn with_gate_ref(mut self, gate_name: impl Into<String>) -> Self {
+        self.gate_ref = Some(ObjectReference::new(gate_name));
+        self
+    }
+
+    /// Add acceptance criteria to this node.
+    pub fn with_acceptance_criteria(mut self, criteria: AcceptanceCriteria) -> Self {
+        self.acceptance_criteria.push(criteria);
         self
     }
 }

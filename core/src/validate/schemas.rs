@@ -169,7 +169,7 @@ pub const PLAN_SCHEMA: &str = r#"
               "minItems": 1,
               "items": {
                 "type": "object",
-                "required": ["id", "kind", "description"],
+                "required": ["id", "kind"],
                 "properties": {
                   "id": {
                     "type": "string",
@@ -179,8 +179,13 @@ pub const PLAN_SCHEMA: &str = r#"
                     "type": "string",
                     "enum": ["Task", "Gate", "Group", "External"]
                   },
+                  "name": { "type": "string" },
                   "description": { "type": "string" },
                   "capabilityRef": { "type": "object" },
+                  "capabilities": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  },
                   "inputs": { "type": "object" },
                   "outputs": { "type": "array" },
                   "timeout": { "type": "string" },
@@ -198,6 +203,51 @@ pub const PLAN_SCHEMA: &str = r#"
                         "uris": { "type": "array", "items": { "type": "string" } }
                       }
                     }
+                  },
+                  "gateRef": {
+                    "type": "object",
+                    "properties": {
+                      "name": { "type": "string" },
+                      "namespace": { "type": "string" }
+                    }
+                  },
+                  "acceptanceCriteria": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["type", "name"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "enum": ["artifact_exists", "test_passes", "endpoint_responds", "command_succeeds", "custom"]
+                        },
+                        "name": { "type": "string" },
+                        "description": { "type": "string" },
+                        "required": { "type": "boolean" },
+                        "path": { "type": "string" },
+                        "contentMatch": { "type": "string" },
+                        "command": { "type": "string" },
+                        "args": { "type": "array", "items": { "type": "string" } },
+                        "expectedExitCode": { "type": "integer" },
+                        "url": { "type": "string" },
+                        "method": { "type": "string" },
+                        "expectedStatus": { "type": "integer" },
+                        "bodyMatch": { "type": "string" },
+                        "outputMatch": { "type": "string" },
+                        "webhookUrl": { "type": "string" },
+                        "payload": { "type": "object" },
+                        "expectedResponse": { "type": "object" },
+                        "timeout": { "type": "string" }
+                      }
+                    }
+                  },
+                  "estimatedEffort": {
+                    "type": "string",
+                    "enum": ["small", "medium", "large", "xlarge"]
+                  },
+                  "dependsOn": {
+                    "type": "array",
+                    "items": { "type": "string" }
                   }
                 }
               }
@@ -376,6 +426,94 @@ pub const BINDING_SCHEMA: &str = r#"
     },
     "status": {
       "type": "object"
+    }
+  }
+}
+"#;
+
+pub const GATE_SCHEMA: &str = r#"
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "const": "Gate"
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["name", "namespace"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "namespace": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "annotations": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "spec": {
+      "type": "object",
+      "required": ["gateType"],
+      "properties": {
+        "gateType": {
+          "type": "string",
+          "enum": ["approval", "review", "sign-off"]
+        },
+        "description": {
+          "type": "string"
+        },
+        "reviewers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "requiredApprovers": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timeout": {
+          "type": "string"
+        },
+        "metadata": {
+          "type": "object"
+        }
+      }
+    },
+    "status": {
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": ["Pending", "Waiting", "Approved", "Rejected", "ChangesRequested", "Expired"]
+        },
+        "conditions": {
+          "type": "array"
+        },
+        "reviewHistory": {
+          "type": "array"
+        },
+        "resolution": {
+          "type": "object"
+        },
+        "observedGeneration": {
+          "type": "integer"
+        }
+      }
     }
   }
 }

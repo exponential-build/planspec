@@ -52,10 +52,14 @@ pub use types::context::{ContextFormat, ContextItem};
 pub use types::execution::{
     Artifact, Execution, ExecutionPhase, ExecutionSpec, ExecutionStatus, NodePhase, NodeStatus,
 };
+pub use types::gate::{
+    Gate, GatePhase, GateSpec, GateStatus, GateType, Resolution, ReviewAction, ReviewActionType,
+};
 pub use types::goal::{AcceptanceCriterion, Goal, GoalPhase, GoalSpec, GoalStatus, LabelSelector};
 pub use types::meta::{Condition, ConditionStatus, ObjectMeta, ObjectReference, OwnerReference};
 pub use types::plan::{
-    Edge, EdgeType, Graph, GraphError, Node, NodeKind, Plan, PlanPhase, PlanSpec, PlanStatus,
+    AcceptanceCriteria, Edge, EdgeType, EstimatedEffort, ExpectedResponse, Graph, GraphError, Node,
+    NodeKind, Plan, PlanPhase, PlanSpec, PlanStatus,
 };
 pub use validate::{ValidationError, Validator};
 

@@ -1,0 +1,75 @@
+# Example: Task with acceptance criteria
+# Demonstrates machine-verifiable validation rules
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: feature-with-acceptance
+  namespace: default
+spec:
+  description: "Feature implementation with acceptance criteria"
+  graph:
+    nodes:
+      - id: implement-api
+        kind: Task
+        name: Implement API endpoint
+        description: |
+          Create the /api/v1/users endpoint with CRUD operations
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        acceptanceCriteria:
+          - type: artifact_exists
+            name: Controller file exists
+            description: The users controller file must be created
+            required: true
+            path: src/controllers/users.rs
+
+          - type: test_passes
+            name: Unit tests pass
+            description: All unit tests must pass
+            required: true
+            command: cargo
+            args: ["test", "--package", "api"]
+            expectedExitCode: 0
+            timeout: 5m
+
+          - type: endpoint_responds
+            name: Health check responds
+            description: The API health endpoint should respond with 200
+            required: false
+            url: http://localhost:8080/health
+            method: GET
+            expectedStatus: 200
+            timeout: 30s
+
+          - type: command_succeeds
+            name: Linter passes
+            description: Code should pass linting
+            required: true
+            command: cargo
+            args: ["clippy", "--", "-D", "warnings"]
+            expectedExitCode: 0
+            timeout: 2m
+
+      - id: write-docs
+        kind: Task
+        name: Write API documentation
+        description: |
+          Document the new API endpoint in the README
+        capabilities:
+          - documentation
+        estimatedEffort: small
+        dependsOn:
+          - implement-api
+        acceptanceCriteria:
+          - type: artifact_exists
+            name: API docs updated
+            description: README should contain API documentation
+            required: true
+            path: README.md
+            contentMatch: "## API Endpoints"
+
+    edges:
+      - from: implement-api
+        to: write-docs

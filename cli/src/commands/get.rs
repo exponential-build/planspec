@@ -112,7 +112,7 @@ pub async fn run(
     Ok(())
 }
 
-/// Get all resources (goals, plans, executions, capabilities, bindings)
+/// Get all resources (goals, plans, executions, capabilities, bindings, gates)
 async fn run_get_all(
     client: &Client,
     selector: Option<String>,
@@ -120,7 +120,7 @@ async fn run_get_all(
     output_format: &str,
 ) -> Result<()> {
     // Resource types to fetch (in display order, similar to kubectl)
-    let resource_types = ["goals", "plans", "executions", "capabilities", "bindings"];
+    let resource_types = ["goals", "plans", "executions", "capabilities", "bindings", "gates"];
 
     // For JSON/YAML output, collect all resources into a single structure
     if output_format == "json" || output_format == "yaml" {
@@ -172,6 +172,7 @@ async fn run_get_all(
                     "executions" => "EXECUTIONS",
                     "capabilities" => "CAPABILITIES",
                     "bindings" => "BINDINGS",
+                    "gates" => "GATES",
                     _ => resource_type,
                 };
                 println!("{}:", kind);
@@ -195,6 +196,7 @@ fn normalize_resource_type(resource: &str) -> String {
         "capability" | "capabilities" => "capabilities",
         "binding" | "bindings" => "bindings",
         "execution" | "executions" => "executions",
+        "gate" | "gates" => "gates",
         "namespace" | "namespaces" | "ns" => "namespaces",
         "all" => "all",
         other => other,
@@ -250,6 +252,7 @@ fn output_table(resource_type: &str, result: &Value, show_namespace: bool) {
             "capabilities" => print_capabilities(items, show_namespace),
             "bindings" => print_bindings(items, show_namespace),
             "executions" => print_executions(items, show_namespace),
+            "gates" => print_gates(items, show_namespace),
             _ => print_generic(items, show_namespace),
         }
     } else {
@@ -260,6 +263,7 @@ fn output_table(resource_type: &str, result: &Value, show_namespace: bool) {
             "capabilities" => print_capabilities(std::slice::from_ref(result), show_namespace),
             "bindings" => print_bindings(std::slice::from_ref(result), show_namespace),
             "executions" => print_executions(std::slice::from_ref(result), show_namespace),
+            "gates" => print_gates(std::slice::from_ref(result), show_namespace),
             _ => print_generic(std::slice::from_ref(result), show_namespace),
         }
     }
@@ -557,6 +561,72 @@ fn print_executions(items: &[Value], show_namespace: bool) {
     println!("{}", table);
 }
 
+#[derive(Tabled)]
+struct GateRow {
+    #[tabled(rename = "NAMESPACE")]
+    namespace: String,
+    #[tabled(rename = "NAME")]
+    name: String,
+    #[tabled(rename = "TYPE")]
+    gate_type: String,
+    #[tabled(rename = "PHASE")]
+    phase: String,
+    #[tabled(rename = "REVIEWERS")]
+    reviewers: String,
+    #[tabled(rename = "AGE")]
+    age: String,
+}
+
+fn print_gates(items: &[Value], show_namespace: bool) {
+    let rows: Vec<GateRow> = items
+        .iter()
+        .map(|item| {
+            let metadata = item.get("metadata").unwrap_or(&Value::Null);
+            let spec = item.get("spec").unwrap_or(&Value::Null);
+            let status = item.get("status").unwrap_or(&Value::Null);
+
+            let reviewers = spec
+                .get("reviewers")
+                .and_then(|r| r.as_array())
+                .map(|r| r.len().to_string())
+                .unwrap_or("-".to_string());
+
+            GateRow {
+                namespace: if show_namespace {
+                    metadata
+                        .get("namespace")
+                        .and_then(|n| n.as_str())
+                        .unwrap_or("")
+                        .to_string()
+                } else {
+                    String::new()
+                },
+                name: metadata
+                    .get("name")
+                    .and_then(|n| n.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                gate_type: spec
+                    .get("gateType")
+                    .and_then(|t| t.as_str())
+                    .unwrap_or("-")
+                    .to_string(),
+                phase: colorize_phase(status.get("phase").and_then(|p| p.as_str()).unwrap_or("")),
+                reviewers,
+                age: calculate_age(metadata.get("creationTimestamp")),
+            }
+        })
+        .collect();
+
+    let mut table = Table::new(rows);
+    if !show_namespace {
+        table.with(tabled::settings::Disable::column(
+            tabled::settings::object::Columns::first(),
+        ));
+    }
+    println!("{}", table);
+}
+
 fn print_generic(items: &[Value], _show_namespace: bool) {
     for item in items {
         let metadata = item.get("metadata").unwrap_or(&Value::Null);
@@ -575,10 +645,10 @@ fn print_generic(items: &[Value], _show_namespace: bool) {
 
 fn colorize_phase(phase: &str) -> String {
     match phase {
-        "Succeeded" | "Ready" | "Available" => phase.green().to_string(),
-        "Running" | "Executing" | "Planning" => phase.blue().to_string(),
-        "Pending" => phase.yellow().to_string(),
-        "Failed" | "Invalid" | "Unresolved" => phase.red().to_string(),
+        "Succeeded" | "Ready" | "Available" | "Approved" => phase.green().to_string(),
+        "Running" | "Executing" | "Planning" | "Waiting" => phase.blue().to_string(),
+        "Pending" | "ChangesRequested" => phase.yellow().to_string(),
+        "Failed" | "Invalid" | "Unresolved" | "Rejected" | "Expired" => phase.red().to_string(),
         "Cancelled" => phase.dimmed().to_string(),
         _ => phase.to_string(),
     }

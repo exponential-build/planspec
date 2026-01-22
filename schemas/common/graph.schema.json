@@ -28,7 +28,7 @@
     "node": {
       "type": "object",
       "description": "A node in the plan DAG",
-      "required": ["id", "kind", "description"],
+      "required": ["id", "kind"],
       "properties": {
         "id": {
           "type": "string",
@@ -41,6 +41,12 @@
           "type": "string",
           "description": "Type of node",
           "enum": ["Task", "Gate", "Group", "External"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name for this node",
+          "minLength": 1,
+          "maxLength": 253
         },
         "description": {
           "type": "string",
@@ -86,6 +92,41 @@
           "description": "Contextual attachments for this node (notes, code pointers, structured data)",
           "items": {
             "$ref": "context.schema.json"
+          }
+        },
+        "gateRef": {
+          "$ref": "reference.schema.json",
+          "description": "Reference to a Gate resource (required for Gate nodes)"
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "description": "Machine-verifiable acceptance criteria (for Task nodes)",
+          "items": {
+            "$ref": "acceptance-criteria.schema.json"
+          }
+        },
+        "capabilities": {
+          "type": "array",
+          "description": "List of capability names required for this node",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 253
+          }
+        },
+        "estimatedEffort": {
+          "type": "string",
+          "description": "Estimated effort level",
+          "enum": ["small", "medium", "large", "xlarge"]
+        },
+        "dependsOn": {
+          "type": "array",
+          "description": "List of node IDs this node depends on (alternative to edges)",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "minLength": 1,
+            "maxLength": 63
           }
         }
       },
