@@ -35,7 +35,7 @@
       "properties": {
         "displayName": {
           "type": "string",
-          "description": "Human-friendly name for display (can change; metadata.name is the stable identity)",
+          "description": "Human-friendly name for display (can change; metadata.name is the stable identity). If absent, UIs should show metadata.name.",
           "maxLength": 128
         },
         "description": {
@@ -100,7 +100,7 @@
         },
         "required": {
           "type": "boolean",
-          "description": "Whether this parameter is required",
+          "description": "Whether this parameter is required. If true and default is present, the parameter will be present after defaulting.",
           "default": false
         },
         "default": {
@@ -108,28 +108,44 @@
         },
         "format": {
           "type": "string",
-          "description": "Format hint for strings (e.g., 'uri', 'email', 'date-time', 'uuid')",
+          "description": "Format hint for strings (requires type: string)",
           "enum": ["uri", "email", "date-time", "date", "time", "uuid", "hostname", "ipv4", "ipv6", "regex"]
         },
         "enum": {
           "type": "array",
           "description": "Allowed values (for constrained inputs)",
-          "items": {},
+          "items": {
+            "type": ["string", "number", "boolean", "null"]
+          },
           "minItems": 1
         },
         "itemType": {
           "type": "string",
-          "description": "Element type for array parameters",
+          "description": "Element type for array parameters (requires type: array)",
           "enum": ["string", "number", "boolean", "object"]
         },
         "properties": {
           "type": "object",
-          "description": "Property definitions for object parameters",
+          "description": "Property definitions for object parameters (requires type: object)",
           "additionalProperties": {
             "$ref": "#/$defs/parameterDefinition"
           }
         }
       },
+      "allOf": [
+        {
+          "if": { "required": ["format"] },
+          "then": { "properties": { "type": { "const": "string" } } }
+        },
+        {
+          "if": { "required": ["itemType"] },
+          "then": { "properties": { "type": { "const": "array" } } }
+        },
+        {
+          "if": { "required": ["properties"] },
+          "then": { "properties": { "type": { "const": "object" } } }
+        }
+      ],
       "additionalProperties": false
     },
     "capabilityRequirement": {
@@ -181,18 +197,22 @@
         "replacement": {
           "type": "object",
           "description": "Reference to replacement capability (when phase is Deprecated)",
+          "required": ["name"],
           "properties": {
             "name": {
               "type": "string",
               "description": "Name of the replacement capability",
-              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+              "maxLength": 63
             },
             "namespace": {
               "type": "string",
               "description": "Namespace of the replacement capability",
-              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+              "maxLength": 63
             }
-          }
+          },
+          "additionalProperties": false
         },
         "deprecationMessage": {
           "type": "string",
@@ -200,6 +220,20 @@
           "maxLength": 1024
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "phase": { "const": "Deprecated" } },
+            "required": ["phase"]
+          },
+          "then": {
+            "anyOf": [
+              { "required": ["replacement"] },
+              { "required": ["deprecationMessage"] }
+            ]
+          }
+        }
+      ],
       "additionalProperties": false
     }
   }

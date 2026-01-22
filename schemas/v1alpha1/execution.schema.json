@@ -2,7 +2,7 @@
   "$id": "https://planspec.io/schemas/v1alpha1/execution.schema.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Execution",
-  "description": "Intent to run a Plan with specific bindings",
+  "description": "Intent to run a Plan with specific bindings. Spec is immutable after creation; status tracks progress.",
   "type": "object",
   "required": ["apiVersion", "kind", "metadata", "spec"],
   "properties": {
@@ -35,7 +35,7 @@
       "properties": {
         "goalRef": {
           "$ref": "../common/reference.schema.json",
-          "description": "Reference to the goal"
+          "description": "Reference to the goal this execution serves (optional; Plan may already reference Goal)"
         },
         "planRef": {
           "$ref": "../common/reference.schema.json",
@@ -43,7 +43,14 @@
         },
         "bindingRef": {
           "$ref": "../common/reference.schema.json",
-          "description": "Reference to the binding to use"
+          "description": "Default binding to use for capability resolution"
+        },
+        "nodeBindings": {
+          "type": "object",
+          "description": "Per-node binding overrides. Key is node ID, value is Binding reference.",
+          "additionalProperties": {
+            "$ref": "../common/reference.schema.json"
+          }
         },
         "runtimeRef": {
           "$ref": "../common/reference.schema.json",
@@ -51,7 +58,7 @@
         },
         "parameters": {
           "type": "object",
-          "description": "Execution parameters",
+          "description": "Execution parameters. Use reverse-domain keys (e.g., 'io.planspec.*') or 'x-' prefix for experimental.",
           "additionalProperties": true
         },
         "context": {
@@ -59,23 +66,24 @@
           "description": "Contextual attachments (notes, code pointers, structured data)",
           "items": {
             "$ref": "../common/context.schema.json"
-          }
+          },
+          "default": []
         }
       },
       "additionalProperties": false
     },
     "executionStatus": {
       "type": "object",
-      "description": "Status of the execution (mutable)",
+      "description": "Status of the execution (mutable by controllers)",
       "properties": {
         "phase": {
           "type": "string",
           "description": "Current lifecycle phase",
-          "enum": ["Pending", "Running", "Succeeded", "Failed", "Cancelled"]
+          "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Cancelled"]
         },
         "runId": {
           "type": "string",
-          "description": "Unique identifier for this run",
+          "description": "Unique identifier for this run (useful if re-run semantics added later)",
           "maxLength": 128
         },
         "startTime": {
@@ -87,6 +95,16 @@
           "type": "string",
           "description": "RFC3339 timestamp when execution completed",
           "format": "date-time"
+        },
+        "lastPhaseTransitionTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when phase last changed",
+          "format": "date-time"
+        },
+        "specHash": {
+          "type": "string",
+          "description": "Hash of spec at creation time. Controllers can refuse to run if spec changes.",
+          "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
         },
         "nodeStatuses": {
           "type": "object",
@@ -113,6 +131,11 @@
           "type": "integer",
           "description": "The generation observed by the controller",
           "minimum": 0
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Extension fields for forward compatibility (controller, runner info, etc.)",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false
@@ -124,7 +147,7 @@
         "phase": {
           "type": "string",
           "description": "Current phase of the node",
-          "enum": ["Pending", "Running", "Succeeded", "Failed", "Skipped", "Cancelled"]
+          "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Skipped", "Cancelled"]
         },
         "startTime": {
           "type": "string",
@@ -138,8 +161,8 @@
         },
         "attempt": {
           "type": "integer",
-          "description": "Current attempt number",
-          "minimum": 1
+          "description": "Current attempt number. 0 = not yet attempted, 1+ = attempt count.",
+          "minimum": 0
         },
         "outputs": {
           "type": "object",
@@ -150,6 +173,11 @@
           "type": "string",
           "description": "Human-readable status message",
           "maxLength": 4096
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Extension fields for forward compatibility (agentId, workerId, logs, timings, etc.)",
+          "additionalProperties": true
         }
       },
       "additionalProperties": false
@@ -168,28 +196,33 @@
         "type": {
           "type": "string",
           "description": "Artifact type",
-          "enum": ["file", "directory", "url", "data"]
+          "enum": ["file", "directory", "url"]
         },
         "path": {
           "type": "string",
-          "description": "Path to the artifact",
+          "description": "Path to the artifact (required for file/directory types)",
           "maxLength": 4096
         },
         "url": {
           "type": "string",
-          "description": "URL to the artifact",
+          "description": "URL to the artifact (required for url type)",
           "format": "uri",
           "maxLength": 4096
         },
         "checksum": {
           "type": "string",
-          "description": "Checksum for verification (format: algorithm:hash)",
-          "pattern": "^[a-z0-9]+:[a-f0-9]+$"
+          "description": "Checksum for verification (format: algorithm:digest, e.g., sha256:abc123)",
+          "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
         },
         "size": {
           "type": "integer",
           "description": "Size in bytes",
           "minimum": 0
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "MIME type of the artifact content (e.g., 'application/json')",
+          "maxLength": 256
         },
         "metadata": {
           "type": "object",
@@ -199,6 +232,22 @@
           }
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "enum": ["file", "directory"] } },
+            "required": ["type"]
+          },
+          "then": { "required": ["path"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "url" } },
+            "required": ["type"]
+          },
+          "then": { "required": ["url"] }
+        }
+      ],
       "additionalProperties": false
     }
   }

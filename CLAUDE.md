@@ -59,3 +59,4 @@ The `validate` command works offline against embedded JSON schemas. Other comman
 - Remember to update @SPECIFICATION.md when making schema changes
 - Remember to add unit tests to cover any bugs or corner cases discovered
 - Remember that schema changes likely also require changes in core/cli/server
+- Remember you can validate a whole directory of planspec files like `planspec validate -d docs/examples -R`

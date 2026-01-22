@@ -674,6 +674,17 @@ pub const EXECUTION_SCHEMA: &str = r#"
             "namespace": { "type": "string" }
           }
         },
+        "nodeBindings": {
+          "type": "object",
+          "description": "Per-node binding overrides. Key is node ID, value is Binding reference.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "namespace": { "type": "string" }
+            }
+          }
+        },
         "runtimeRef": {
           "type": "object"
         },
@@ -696,7 +707,65 @@ pub const EXECUTION_SCHEMA: &str = r#"
       }
     },
     "status": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Cancelled"]
+        },
+        "runId": { "type": "string", "maxLength": 128 },
+        "startTime": { "type": "string", "format": "date-time" },
+        "completionTime": { "type": "string", "format": "date-time" },
+        "lastPhaseTransitionTime": { "type": "string", "format": "date-time" },
+        "specHash": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
+        },
+        "nodeStatuses": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "phase": {
+                "type": "string",
+                "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Skipped", "Cancelled"]
+              },
+              "startTime": { "type": "string", "format": "date-time" },
+              "completionTime": { "type": "string", "format": "date-time" },
+              "attempt": { "type": "integer", "minimum": 0 },
+              "outputs": { "type": "object" },
+              "message": { "type": "string", "maxLength": 4096 },
+              "extensions": { "type": "object" }
+            }
+          }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "type"],
+            "properties": {
+              "name": { "type": "string", "minLength": 1, "maxLength": 253 },
+              "type": { "type": "string", "enum": ["file", "directory", "url"] },
+              "path": { "type": "string", "maxLength": 4096 },
+              "url": { "type": "string", "format": "uri", "maxLength": 4096 },
+              "checksum": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
+              },
+              "size": { "type": "integer", "minimum": 0 },
+              "mediaType": { "type": "string", "maxLength": 256 },
+              "metadata": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            }
+          }
+        },
+        "conditions": { "type": "array" },
+        "observedGeneration": { "type": "integer", "minimum": 0 },
+        "extensions": { "type": "object" }
+      }
     }
   }
 }
