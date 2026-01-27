@@ -45,7 +45,8 @@
           "items": {
             "$ref": "#/$defs/bindingRule"
           },
-          "minItems": 1
+          "minItems": 1,
+          "maxItems": 256
         }
       },
       "additionalProperties": false
@@ -95,13 +96,10 @@
           "type": "object",
           "description": "Match Plans with all specified labels (AND semantics). Matches against Plan metadata.labels only.",
           "additionalProperties": {
-            "type": "string",
-            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
-            "maxLength": 63
+            "$ref": "../common/types.schema.json#/$defs/labelValue"
           },
           "propertyNames": {
-            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
-            "maxLength": 253
+            "$ref": "../common/types.schema.json#/$defs/labelKey"
           }
         }
       },
@@ -191,7 +189,8 @@
           "items": {
             "$ref": "#/$defs/unboundCapability"
           },
-          "default": []
+          "default": [],
+          "maxItems": 1000
         },
         "conditions": {
           "type": "array",
@@ -199,7 +198,8 @@
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
           },
-          "default": []
+          "default": [],
+          "maxItems": 32
         },
         "observedGeneration": {
           "type": "integer",

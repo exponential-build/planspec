@@ -49,12 +49,13 @@
         },
         "reviewers": {
           "type": "array",
-          "description": "List of authorized reviewers (user IDs, emails, team names, or service account identifiers). Future versions may add structured 'subjects' field.",
+          "description": "List of authorized reviewers. Use prefixes for clarity: 'user:alice', 'team:platform', 'svc:policy-engine', 'email:alice@example.com'. Future versions may add structured 'subjects' field.",
           "items": {
             "type": "string",
             "minLength": 1,
             "maxLength": 253
-          }
+          },
+          "maxItems": 100
         },
         "requiredApprovers": {
           "type": "integer",
@@ -133,14 +134,16 @@
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "maxItems": 32
         },
         "reviewHistory": {
           "type": "array",
           "description": "History of review actions for audit trail",
           "items": {
             "$ref": "#/$defs/reviewAction"
-          }
+          },
+          "maxItems": 1000
         },
         "resolution": {
           "$ref": "#/$defs/resolution",
@@ -260,7 +263,8 @@
             "minLength": 1,
             "maxLength": 253
           },
-          "minItems": 1
+          "minItems": 1,
+          "maxItems": 100
         },
         "timestamp": {
           "type": "string",

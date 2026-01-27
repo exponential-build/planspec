@@ -68,7 +68,8 @@
             "items": {
               "type": "string",
               "maxLength": 1024
-            }
+            },
+            "maxItems": 256
           },
           "expectedExitCode": {
             "type": "integer",
@@ -140,7 +141,8 @@
             "items": {
               "type": "string",
               "maxLength": 1024
-            }
+            },
+            "maxItems": 256
           },
           "expectedExitCode": {
             "type": "integer",

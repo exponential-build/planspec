@@ -145,8 +145,12 @@ pub enum CapabilityParamType {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CapabilityRequirement {
-    /// Name of the required capability.
-    pub capability: String,
+    /// Name of the required capability (must match target's metadata.name).
+    pub name: String,
+
+    /// Namespace of the required capability (defaults to referring capability's namespace).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<String>,
 
     /// Whether this requirement is optional.
     #[serde(skip_serializing_if = "Option::is_none")]

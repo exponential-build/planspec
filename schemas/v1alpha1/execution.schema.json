@@ -72,7 +72,8 @@
           "items": {
             "$ref": "../common/context.schema.json"
           },
-          "default": []
+          "default": [],
+          "maxItems": 64
         }
       },
       "additionalProperties": false
@@ -135,7 +136,8 @@
           },
           "additionalProperties": {
             "$ref": "#/$defs/nodeStatus"
-          }
+          },
+          "default": {}
         },
         "artifacts": {
           "type": "array",
@@ -143,7 +145,8 @@
           "items": {
             "$ref": "#/$defs/artifact"
           },
-          "default": []
+          "default": [],
+          "maxItems": 1000
         },
         "conditions": {
           "type": "array",
@@ -151,7 +154,8 @@
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
           },
-          "default": []
+          "default": [],
+          "maxItems": 32
         },
         "observedGeneration": {
           "type": "integer",

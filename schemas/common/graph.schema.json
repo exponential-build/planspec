@@ -12,7 +12,8 @@
       "items": {
         "$ref": "#/$defs/node"
       },
-      "minItems": 1
+      "minItems": 1,
+      "maxItems": 1000
     },
     "edges": {
       "type": "array",
@@ -20,7 +21,8 @@
       "items": {
         "$ref": "#/$defs/edge"
       },
-      "default": []
+      "default": [],
+      "maxItems": 10000
     }
   },
   "additionalProperties": false,
@@ -63,7 +65,8 @@
           "items": {
             "$ref": "context.schema.json"
           },
-          "default": []
+          "default": [],
+          "maxItems": 64
         },
         "dependsOn": {
           "type": "array",
@@ -71,7 +74,8 @@
           "items": {
             "$ref": "#/$defs/nodeId"
           },
-          "default": []
+          "default": [],
+          "maxItems": 100
         }
       }
     },
@@ -99,7 +103,8 @@
               "items": {
                 "$ref": "reference.schema.json"
               },
-              "default": []
+              "default": [],
+              "maxItems": 64
             },
             "inputs": {
               "type": "object",
@@ -115,7 +120,8 @@
                 "maxLength": 63
               },
               "uniqueItems": true,
-              "default": []
+              "default": [],
+              "maxItems": 64
             },
             "timeout": {
               "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
@@ -139,7 +145,8 @@
               "items": {
                 "$ref": "acceptance-criteria.schema.json"
               },
-              "default": []
+              "default": [],
+              "maxItems": 100
             },
             "estimatedEffort": {
               "type": "string",
@@ -185,6 +192,7 @@
                 "$ref": "#/$defs/nodeId"
               },
               "minItems": 1,
+              "maxItems": 1000,
               "uniqueItems": true
             },
             "mode": {

@@ -56,7 +56,8 @@
           "items": {
             "$ref": "#/$defs/parameterDefinition"
           },
-          "default": []
+          "default": [],
+          "maxItems": 64
         },
         "outputs": {
           "type": "array",
@@ -64,7 +65,8 @@
           "items": {
             "$ref": "#/$defs/parameterDefinition"
           },
-          "default": []
+          "default": [],
+          "maxItems": 64
         },
         "requirements": {
           "type": "array",
@@ -72,7 +74,8 @@
           "items": {
             "$ref": "#/$defs/capabilityRequirement"
           },
-          "default": []
+          "default": [],
+          "maxItems": 64
         }
       },
       "additionalProperties": false
@@ -129,7 +132,8 @@
           "description": "Property definitions for object parameters (requires type: object). Named to avoid collision with JSON Schema 'properties' keyword.",
           "additionalProperties": {
             "$ref": "#/$defs/parameterDefinition"
-          }
+          },
+          "maxProperties": 32
         }
       },
       "allOf": [
@@ -187,7 +191,8 @@
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "maxItems": 32
         },
         "observedGeneration": {
           "type": "integer",

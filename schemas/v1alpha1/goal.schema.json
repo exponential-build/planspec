@@ -46,10 +46,11 @@
         },
         "acceptanceCriteria": {
           "type": "array",
-          "description": "Criteria that define when the goal is achieved",
+          "description": "Criteria that define when the goal is achieved. When 'id' fields are present, they must be unique within this array (enforced by controllers).",
           "items": {
             "$ref": "#/$defs/acceptanceCriterion"
-          }
+          },
+          "maxItems": 100
         },
         "planSelector": {
           "$ref": "#/$defs/labelSelector",
@@ -71,7 +72,8 @@
           "description": "Contextual attachments (notes, code pointers, structured data)",
           "items": {
             "$ref": "../common/context.schema.json"
-          }
+          },
+          "maxItems": 64
         }
       },
       "additionalProperties": false
@@ -105,13 +107,10 @@
           "type": "object",
           "description": "Equality-based label matching",
           "propertyNames": {
-            "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
-            "maxLength": 253
+            "$ref": "../common/types.schema.json#/$defs/labelKey"
           },
           "additionalProperties": {
-            "type": "string",
-            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
-            "maxLength": 63
+            "$ref": "../common/types.schema.json#/$defs/labelValue"
           }
         },
         "matchExpressions": {
@@ -119,7 +118,8 @@
           "description": "Set-based label matching",
           "items": {
             "$ref": "#/$defs/labelSelectorRequirement"
-          }
+          },
+          "maxItems": 64
         }
       },
       "additionalProperties": false
@@ -130,10 +130,8 @@
       "required": ["key", "operator"],
       "properties": {
         "key": {
-          "type": "string",
-          "description": "Label key",
-          "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
-          "maxLength": 253
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/labelKey" }],
+          "description": "Label key"
         },
         "operator": {
           "type": "string",
@@ -144,9 +142,7 @@
           "type": "array",
           "description": "Values to match (required for In/NotIn, forbidden for Exists/DoesNotExist)",
           "items": {
-            "type": "string",
-            "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
-            "maxLength": 63
+            "$ref": "../common/types.schema.json#/$defs/labelValue"
           }
         }
       },
@@ -193,7 +189,8 @@
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "maxItems": 32
         },
         "observedGeneration": {
           "type": "integer",
