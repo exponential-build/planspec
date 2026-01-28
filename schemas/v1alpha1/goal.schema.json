@@ -84,11 +84,8 @@
       "required": ["description"],
       "properties": {
         "id": {
-          "type": "string",
-          "description": "Stable identifier for referencing this criterion (e.g., in gates, conditions, test results)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Stable identifier for referencing this criterion (e.g., in gates, conditions, test results)"
         },
         "description": {
           "type": "string",
@@ -111,7 +108,8 @@
           },
           "additionalProperties": {
             "$ref": "../common/types.schema.json#/$defs/labelValue"
-          }
+          },
+          "maxProperties": 64
         },
         "matchExpressions": {
           "type": "array",
@@ -143,7 +141,8 @@
           "description": "Values to match (required for In/NotIn, forbidden for Exists/DoesNotExist)",
           "items": {
             "$ref": "../common/types.schema.json#/$defs/labelValue"
-          }
+          },
+          "maxItems": 64
         }
       },
       "additionalProperties": false,
@@ -156,7 +155,7 @@
           "then": {
             "required": ["values"],
             "properties": {
-              "values": { "minItems": 1 }
+              "values": { "type": "array", "minItems": 1 }
             }
           }
         },

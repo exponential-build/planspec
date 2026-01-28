@@ -19,7 +19,8 @@
         { "$ref": "plan.schema.json" },
         { "$ref": "capability.schema.json" },
         { "$ref": "binding.schema.json" },
-        { "$ref": "execution.schema.json" }
+        { "$ref": "execution.schema.json" },
+        { "$ref": "gate.schema.json" }
       ]
     },
     "resourceList": {

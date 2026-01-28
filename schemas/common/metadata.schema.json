@@ -7,23 +7,16 @@
   "required": ["name", "namespace"],
   "properties": {
     "name": {
-      "type": "string",
-      "description": "Unique identifier within the namespace. Must be DNS label format: lowercase alphanumeric, may contain hyphens, max 63 chars.",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-      "minLength": 1,
-      "maxLength": 63
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Unique identifier within the namespace. Must be DNS label format."
     },
     "namespace": {
-      "type": "string",
-      "description": "Namespace for resource isolation. Must be DNS label format.",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-      "minLength": 1,
-      "maxLength": 63
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Namespace for resource isolation. Must be DNS label format."
     },
     "uid": {
-      "type": "string",
-      "description": "System-generated unique identifier (UUID). Clients MUST NOT set this field.",
-      "format": "uuid",
+      "allOf": [{ "$ref": "types.schema.json#/$defs/uid" }],
+      "description": "System-generated unique identifier. Clients MUST NOT set this field.",
       "readOnly": true
     },
     "resourceVersion": {
@@ -69,14 +62,12 @@
       "type": "object",
       "description": "Key-value pairs for selection and organization",
       "additionalProperties": {
-        "type": "string",
-        "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
-        "maxLength": 63
+        "$ref": "types.schema.json#/$defs/labelValue"
       },
       "propertyNames": {
-        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
-        "maxLength": 253
-      }
+        "$ref": "types.schema.json#/$defs/labelKey"
+      },
+      "maxProperties": 256
     },
     "annotations": {
       "type": "object",
@@ -86,9 +77,9 @@
         "maxLength": 65536
       },
       "propertyNames": {
-        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
-        "maxLength": 253
-      }
+        "$ref": "types.schema.json#/$defs/labelKey"
+      },
+      "maxProperties": 256
     },
     "ownerReferences": {
       "type": "array",
@@ -118,9 +109,8 @@
           "description": "Name of the owner"
         },
         "uid": {
-          "type": "string",
-          "description": "UID of the owner",
-          "format": "uuid"
+          "$ref": "types.schema.json#/$defs/uid",
+          "description": "UID of the owner"
         },
         "controller": {
           "type": "boolean",

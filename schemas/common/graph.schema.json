@@ -17,7 +17,7 @@
     },
     "edges": {
       "type": "array",
-      "description": "Edges connecting nodes (canonical dependency representation)",
+      "description": "Edges connecting nodes (canonical dependency representation). Invariants enforced by controllers: no self-loops (from != to), no duplicate edges.",
       "items": {
         "$ref": "#/$defs/edge"
       },
@@ -27,19 +27,13 @@
   },
   "additionalProperties": false,
   "$defs": {
-    "nodeId": {
-      "type": "string",
-      "description": "Node identifier (DNS label format)",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-      "minLength": 1,
-      "maxLength": 63
-    },
     "nodeBase": {
       "type": "object",
       "description": "Base properties common to all node kinds",
+      "required": ["id", "kind"],
       "properties": {
         "id": {
-          "$ref": "#/$defs/nodeId",
+          "$ref": "types.schema.json#/$defs/nodeId",
           "description": "Unique identifier within the plan"
         },
         "kind": {
@@ -72,7 +66,7 @@
           "type": "array",
           "description": "Convenience: node IDs this node depends on. Normalized to hard edges by controller. For soft dependencies, use edges directly.",
           "items": {
-            "$ref": "#/$defs/nodeId"
+            "$ref": "types.schema.json#/$defs/nodeId"
           },
           "default": [],
           "maxItems": 100
@@ -89,12 +83,12 @@
       ]
     },
     "taskNode": {
+      "type": "object",
       "description": "A task node representing work to be executed",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
           "type": "object",
-          "required": ["id", "kind"],
           "properties": {
             "kind": { "const": "Task" },
             "capabilityRefs": {
@@ -159,12 +153,13 @@
       "unevaluatedProperties": false
     },
     "gateNode": {
+      "type": "object",
       "description": "A gate node representing an approval/review checkpoint",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
           "type": "object",
-          "required": ["id", "kind", "gateRef"],
+          "required": ["gateRef"],
           "properties": {
             "kind": { "const": "Gate" },
             "gateRef": {
@@ -177,19 +172,20 @@
       "unevaluatedProperties": false
     },
     "groupNode": {
+      "type": "object",
       "description": "A group node representing a logical grouping of other nodes. Groups are presentational and provide planner hints; actual execution ordering is determined by edges.",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
           "type": "object",
-          "required": ["id", "kind", "children"],
+          "required": ["children"],
           "properties": {
             "kind": { "const": "Group" },
             "children": {
               "type": "array",
               "description": "Node IDs that belong to this group",
               "items": {
-                "$ref": "#/$defs/nodeId"
+                "$ref": "types.schema.json#/$defs/nodeId"
               },
               "minItems": 1,
               "maxItems": 1000,
@@ -207,12 +203,13 @@
       "unevaluatedProperties": false
     },
     "externalNode": {
+      "type": "object",
       "description": "An external node representing a dependency on an external system or process",
       "allOf": [
         { "$ref": "#/$defs/nodeBase" },
         {
           "type": "object",
-          "required": ["id", "kind", "externalRef"],
+          "required": ["externalRef"],
           "properties": {
             "kind": { "const": "External" },
             "externalRef": {
@@ -284,11 +281,11 @@
       "required": ["from", "to"],
       "properties": {
         "from": {
-          "$ref": "#/$defs/nodeId",
+          "$ref": "types.schema.json#/$defs/nodeId",
           "description": "Source node ID"
         },
         "to": {
-          "$ref": "#/$defs/nodeId",
+          "$ref": "types.schema.json#/$defs/nodeId",
           "description": "Target node ID"
         },
         "type": {

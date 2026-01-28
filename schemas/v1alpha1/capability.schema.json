@@ -118,7 +118,12 @@
           "type": "array",
           "description": "Allowed values (for constrained inputs)",
           "items": {
-            "type": ["string", "number", "boolean", "null"]
+            "anyOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" },
+              { "type": "null" }
+            ]
           },
           "minItems": 1
         },
@@ -158,16 +163,12 @@
       "required": ["name"],
       "properties": {
         "name": {
-          "type": "string",
-          "description": "Name of the required capability (must match target's metadata.name)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Name of the required capability (must match target's metadata.name)"
         },
         "namespace": {
-          "type": "string",
-          "description": "Namespace of the required capability. Defaults to the referring capability's namespace.",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Namespace of the required capability. Defaults to the referring capability's namespace."
         },
         "optional": {
           "type": "boolean",
@@ -205,16 +206,12 @@
           "required": ["name"],
           "properties": {
             "name": {
-              "type": "string",
-              "description": "Name of the replacement capability",
-              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-              "maxLength": 63
+              "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+              "description": "Name of the replacement capability"
             },
             "namespace": {
-              "type": "string",
-              "description": "Namespace of the replacement capability",
-              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-              "maxLength": 63
+              "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+              "description": "Namespace of the replacement capability"
             }
           },
           "additionalProperties": false

@@ -54,7 +54,7 @@ status:
 |-------|------|----------|-------------|
 | `name` | string | Yes | Unique within namespace, DNS label format (max 63 characters) |
 | `namespace` | string | Yes | Isolation boundary |
-| `uid` | string | System | Immutable server-assigned UUID |
+| `uid` | string | System | Opaque server-assigned identifier (not necessarily UUID) |
 | `resourceVersion` | string | System | Optimistic concurrency token |
 | `generation` | integer | System | Increments on spec changes only |
 | `labels` | map[string]string | No | Key-value pairs for selection |
@@ -79,7 +79,7 @@ All references use this shape to support cross-namespace reads and strong linkin
 ```yaml
 name: <string>        # Required
 namespace: <string>   # Optional, defaults to referring object's namespace
-uid: <string>         # Optional, reserved - for strong references
+uid: <string>         # Optional - for strong references (survives renames)
 ```
 
 - Cross-namespace references MAY be forbidden by policy in v1alpha1

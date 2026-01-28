@@ -50,7 +50,8 @@
       "description": "Array of conditions",
       "items": {
         "$ref": "#/$defs/condition"
-      }
+      },
+      "maxItems": 32
     },
     "baseStatus": {
       "type": "object",

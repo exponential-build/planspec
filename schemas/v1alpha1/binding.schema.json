@@ -87,10 +87,8 @@
           "description": "Match within a specific plan (plan-wide default, or combined with nodeId/capabilityRef)"
         },
         "nodeId": {
-          "type": "string",
-          "description": "Match a specific node (requires planRef). Must match graph.nodes[].id in the referenced Plan.",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/nodeId" }],
+          "description": "Match a specific node (requires planRef). Must match graph.nodes[].id in the referenced Plan."
         },
         "matchLabels": {
           "type": "object",
@@ -100,7 +98,8 @@
           },
           "propertyNames": {
             "$ref": "../common/types.schema.json#/$defs/labelKey"
-          }
+          },
+          "maxProperties": 64
         }
       },
       "additionalProperties": false,
@@ -219,10 +218,8 @@
           "description": "Reference to the unbound capability"
         },
         "nodeId": {
-          "type": "string",
-          "description": "Node ID where this capability is required (if node-specific)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/nodeId" }],
+          "description": "Node ID where this capability is required (if node-specific)"
         },
         "reason": {
           "type": "string",

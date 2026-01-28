@@ -38,10 +38,8 @@
           "description": "Reference to the goal (optional, supports reusable plans)"
         },
         "series": {
-          "type": "string",
-          "description": "Stable plan family identifier",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Stable plan family identifier"
         },
         "version": {
           "type": "string",
@@ -104,7 +102,8 @@
           "description": "Detailed conditions",
           "items": {
             "$ref": "../common/status.schema.json#/$defs/condition"
-          }
+          },
+          "maxItems": 32
         },
         "observedGeneration": {
           "type": "integer",

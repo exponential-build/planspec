@@ -126,10 +126,10 @@ jobs:
       - name: Install ajv-cli
         run: npm install -g ajv-cli ajv-formats
 
-      - name: Validate JSON schemas are valid
+      - name: Validate JSON schemas
         run: |
           # Validate base schemas (no cross-references to other v1alpha1 schemas)
-          for schema in schemas/v1alpha1/{goal,plan,capability,binding,execution}.schema.json; do
+          for schema in schemas/v1alpha1/{goal,plan,capability,binding,execution,gate}.schema.json; do
             echo "Validating $schema..."
             ajv compile -s "$schema" --spec=draft2020 -c ajv-formats \
               -r "schemas/common/*.schema.json" || exit 1
@@ -144,4 +144,5 @@ jobs:
             -r schemas/v1alpha1/capability.schema.json \
             -r schemas/v1alpha1/binding.schema.json \
             -r schemas/v1alpha1/execution.schema.json \
+            -r schemas/v1alpha1/gate.schema.json \
             -s schemas/v1alpha1/document.schema.json

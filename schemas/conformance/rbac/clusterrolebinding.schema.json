@@ -29,9 +29,8 @@
           "maxLength": 253
         },
         "uid": {
-          "type": "string",
+          "allOf": [{ "$ref": "../../common/types.schema.json#/$defs/uid" }],
           "description": "System-generated unique identifier",
-          "format": "uuid",
           "readOnly": true
         },
         "resourceVersion": {

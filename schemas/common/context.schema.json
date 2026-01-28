@@ -7,9 +7,8 @@
   "required": ["format"],
   "properties": {
     "name": {
-      "type": "string",
-      "description": "Optional identifier for this context item",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Optional identifier for this context item"
     },
     "format": {
       "type": "string",

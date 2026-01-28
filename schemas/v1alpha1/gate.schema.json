@@ -91,31 +91,20 @@
           "maxLength": 63
         },
         "name": {
-          "type": "string",
-          "description": "Name of the target resource (DNS label format)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Name of the target resource (DNS label format)"
         },
         "namespace": {
-          "type": "string",
-          "description": "Namespace of the target resource (defaults to gate's namespace)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Namespace of the target resource (defaults to gate's namespace)"
         },
         "uid": {
-          "type": "string",
-          "description": "UID of the target resource for strong references (survives renames). Opaque string, not necessarily a UUID.",
-          "minLength": 1,
-          "maxLength": 128
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/uid" }],
+          "description": "UID of the target resource for strong references (survives renames)."
         },
         "nodeId": {
-          "type": "string",
-          "description": "ID of a specific node within the target Plan/Execution graph (DNS label format)",
-          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-          "minLength": 1,
-          "maxLength": 63
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/nodeId" }],
+          "description": "ID of a specific node within the target Plan/Execution graph"
         }
       },
       "additionalProperties": false
@@ -184,6 +173,7 @@
             "required": ["resolution"],
             "properties": {
               "resolution": {
+                "type": "object",
                 "properties": { "outcome": { "const": "approved" } },
                 "required": ["outcome"]
               }
@@ -199,6 +189,7 @@
             "required": ["resolution"],
             "properties": {
               "resolution": {
+                "type": "object",
                 "properties": { "outcome": { "const": "rejected" } },
                 "required": ["outcome"]
               }

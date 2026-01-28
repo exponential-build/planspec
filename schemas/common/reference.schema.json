@@ -19,23 +19,16 @@
       "maxLength": 63
     },
     "name": {
-      "type": "string",
-      "description": "Name of the referenced resource (DNS label format)",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-      "minLength": 1,
-      "maxLength": 63
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Name of the referenced resource (DNS label format)"
     },
     "namespace": {
-      "type": "string",
-      "description": "Namespace of the referenced resource. Defaults to the referring object's namespace.",
-      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-      "minLength": 1,
-      "maxLength": 63
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Namespace of the referenced resource. Defaults to the referring object's namespace."
     },
     "uid": {
-      "type": "string",
-      "description": "UID of the referenced resource for strong references. When provided, validates that the resolved resource matches this UID.",
-      "format": "uuid"
+      "allOf": [{ "$ref": "types.schema.json#/$defs/uid" }],
+      "description": "UID of the referenced resource for strong references. When provided, validates that the resolved resource matches this UID."
     }
   },
   "additionalProperties": false
