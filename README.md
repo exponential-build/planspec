@@ -2,8 +2,6 @@
 
 **Open source infrastructure for declarative work orchestration**
 
-Developed by [Exponential Build, Inc.](https://exponential.build)
-
 ---
 
 ## Overview
@@ -186,3 +184,7 @@ PlanSpec follows Kubernetes API versioning conventions:
 ## License
 
 MIT
+
+---
+
+© 2026 Exponential Build, Inc.

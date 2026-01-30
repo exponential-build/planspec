@@ -1,0 +1,196 @@
+# Canonical Example: Feature Release with Safety Rails
+#
+# This example demonstrates PlanSpec's core value proposition:
+# making work coordination explicit and visible.
+#
+# Patterns demonstrated:
+# - Parallelism: 3 tasks start independently (api, ui, docs)
+# - Convergence: Implementation must complete before validation
+# - Dual validation: Tests and security scan run in parallel
+# - Gate: Security review blocks production deployment
+# - Coordination visibility: Graph shows who waits for whom
+#
+# Graph structure (edges are the single source of truth):
+#
+#     implement-api ──┐
+#                     ├───→ run-tests ────────┐
+#     implement-ui ───┤                       │
+#                     ├───→ security-scan ────┼──→ security-review ──→ deploy
+#     write-docs ─────┘
+#
+#     Note: run-tests depends on api+ui; security-scan depends on all three
+#
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: add-payment-processing
+  namespace: default
+  labels:
+    team: payments
+    priority: high
+spec:
+  description: |
+    Add payment processing to the checkout flow.
+    Must pass security review before production deployment.
+  acceptanceCriteria:
+    - id: api-complete
+      description: Payment API endpoints implemented and tested
+    - id: ui-complete
+      description: Checkout UI integrates with payment API
+    - id: security-approved
+      description: Security team approves the implementation
+  priority: 10
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: payment-feature-v1
+  namespace: default
+  labels:
+    planspec.io/goal: add-payment-processing
+    planspec.io/series: payment-feature
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: add-payment-processing
+  series: payment-feature
+  version: "1"
+  description: Implement payment processing with parallel workstreams and security gate
+  graph:
+    nodes:
+      # Phase 1: Parallel implementation (no dependencies)
+      #
+      # capabilityRefs are illustrative; PlanSpec does not require a runtime
+      # or capability registry to be useful as a coordination spec.
+
+      - id: implement-api
+        kind: Task
+        name: Implement payment API
+        description: Build payment endpoints with provider integration
+        capabilityRefs:
+          - name: code-generation
+        estimatedEffort: medium
+
+      - id: implement-ui
+        kind: Task
+        name: Implement checkout UI
+        description: Add payment form to checkout flow
+        capabilityRefs:
+          - name: code-generation
+        estimatedEffort: medium
+
+      - id: write-docs
+        kind: Task
+        name: Write integration docs
+        description: Document the payment API for frontend team
+        capabilityRefs:
+          - name: documentation
+        estimatedEffort: small
+
+      # Phase 2: Validation (waits for implementation)
+
+      - id: run-tests
+        kind: Task
+        name: Run test suite
+        description: Execute unit and integration tests
+        capabilityRefs:
+          - name: test-execution
+        # Acceptance criteria may be machine-verifiable in some environments,
+        # but PlanSpec itself does not require or assume any specific executor.
+        acceptanceCriteria:
+          - type: command_succeeds
+            name: tests-pass
+            description: All unit and integration tests pass
+            command: npm test
+            expectedExitCode: 0
+
+      - id: security-scan
+        kind: Task
+        name: Security scan
+        description: Scan for vulnerabilities and compliance requirements
+        capabilityRefs:
+          - name: security-analysis
+        acceptanceCriteria:
+          - type: command_succeeds
+            name: no-critical-findings
+            description: No critical or high severity vulnerabilities found
+            command: npm run security:scan
+            expectedExitCode: 0
+
+      # Phase 3: Gate (waits for validation)
+
+      - id: security-review
+        kind: Gate
+        name: Security review
+        description: Security team approval required before production
+        gateRef:
+          name: payment-security-review
+
+      # Phase 4: Deploy (waits for approval)
+
+      - id: deploy
+        kind: Task
+        name: Deploy to production
+        description: Deploy payment feature to production
+        capabilityRefs:
+          - name: deployment
+        acceptanceCriteria:
+          - type: endpoint_responds
+            name: health-check
+            description: Payment endpoint responds to health check
+            url: https://api.example.com/payments/health
+            expectedStatus: 200
+
+    # Edges are the canonical dependency representation.
+    # This is the single source of truth for execution order.
+    edges:
+      # Phase 1 -> Phase 2: Implementation feeds validation
+      - from: implement-api
+        to: run-tests
+      - from: implement-ui
+        to: run-tests
+      - from: implement-api
+        to: security-scan
+      - from: implement-ui
+        to: security-scan
+      - from: write-docs
+        to: security-scan
+      # Phase 2 -> Phase 3: Validation feeds gate
+      - from: run-tests
+        to: security-review
+      - from: security-scan
+        to: security-review
+      # Phase 3 -> Phase 4: Gate feeds deploy
+      - from: security-review
+        to: deploy
+---
+apiVersion: planspec.io/v1alpha1
+kind: Gate
+metadata:
+  name: payment-security-review
+  namespace: default
+  labels:
+    team: security
+    risk-level: high
+spec:
+  gateType: review
+  targetRef:
+    kind: Plan
+    name: payment-feature-v1
+    nodeId: security-review
+  description: |
+    Security review for payment processing feature.
+
+    Verify:
+    - No credentials in code
+    - Input validation on all endpoints
+    - Rate limiting configured
+    - Logging and audit trail in place
+  reviewers:
+    - team:security
+    - user:tech-lead
+  requiredApprovers: 2
+  context:
+    feature: payment-processing
+    risk-level: high
