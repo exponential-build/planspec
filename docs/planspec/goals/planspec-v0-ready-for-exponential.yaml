@@ -1,0 +1,25 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-v0-ready-for-exponential
+  namespace: planspec
+spec:
+  description: "Meta-goal that tracks overall v0 readiness for PlanSpec to be used as the work orchestration system for Exponential"
+  acceptanceCriteria:
+    - description: "All subgoals completed"
+    - description: "PlanSpec is used for all significant development work"
+    - description: "Documentation is complete and accurate"
+  context:
+    - name: overview
+      format: markdown
+      content: |
+        This is the top-level meta-goal for PlanSpec v0. It represents the milestone
+        where PlanSpec is ready to be used as the canonical work orchestration system
+        for Exponential development.
+
+        Subgoals (in dependency order):
+        1. planspec-schema-and-conventions-v0 - Establish schema conventions
+        2. planspec-fixtures-and-integration-tests - Test infrastructure
+        3. planspec-goal-to-plan-resolution-mvp - Plan selection logic
+        4. planspec-status-and-observability-v0 - Status updates and visibility
+  priority: 1000

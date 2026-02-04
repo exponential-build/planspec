@@ -1,0 +1,35 @@
+# Documentation Capability
+#
+# Capability for generating and updating documentation.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: documentation
+  namespace: planspec
+  labels:
+    category: documentation
+spec:
+  displayName: "Documentation"
+  description: "Generate or update documentation"
+  category: documentation
+  inputs:
+    - name: type
+      type: string
+      description: "Type of documentation: api, user-guide, readme, changelog"
+      required: true
+    - name: sourcePath
+      type: string
+      description: "Source code or content path"
+    - name: format
+      type: string
+      description: "Output format: markdown, html, pdf"
+      default: "markdown"
+    - name: audience
+      type: string
+      description: "Target audience: developer, user, operator"
+      default: "developer"
+  outputs:
+    - name: documents
+      type: array
+      description: "Generated documentation files"

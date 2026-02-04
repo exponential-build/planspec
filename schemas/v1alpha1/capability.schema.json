@@ -1,0 +1,242 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/capability.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Capability",
+  "description": "A reusable ability that agents can provide. metadata.name is the immutable identity; spec.displayName can change freely.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Capability"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/capabilitySpec"
+    },
+    "status": {
+      "$ref": "#/$defs/capabilityStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "capabilitySpec": {
+      "type": "object",
+      "description": "Specification of the capability",
+      "required": ["description"],
+      "properties": {
+        "displayName": {
+          "type": "string",
+          "description": "Human-friendly name for display (can change; metadata.name is the stable identity). If absent, UIs should show metadata.name.",
+          "maxLength": 128
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this capability does",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "category": {
+          "type": "string",
+          "description": "Category for organization and filtering (kebab-case for URL/UI stability)",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "maxLength": 64
+        },
+        "inputs": {
+          "type": "array",
+          "description": "Input parameters this capability accepts",
+          "items": {
+            "$ref": "#/$defs/parameterDefinition"
+          },
+          "default": [],
+          "maxItems": 64
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output artifacts this capability produces",
+          "items": {
+            "$ref": "#/$defs/parameterDefinition"
+          },
+          "default": [],
+          "maxItems": 64
+        },
+        "requirements": {
+          "type": "array",
+          "description": "Other capabilities this one depends on (forms a 'tech tree')",
+          "items": {
+            "$ref": "#/$defs/capabilityRequirement"
+          },
+          "default": [],
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "parameterDefinition": {
+      "type": "object",
+      "description": "Definition of an input or output parameter",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Parameter name (programming identifier style for codegen compatibility)",
+          "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+          "maxLength": 64
+        },
+        "type": {
+          "type": "string",
+          "description": "Data type",
+          "enum": ["string", "number", "boolean", "object", "array"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the parameter",
+          "maxLength": 1024
+        },
+        "required": {
+          "type": "boolean",
+          "description": "Whether this parameter is required. If true and default is present, the parameter will be present after defaulting.",
+          "default": false
+        },
+        "default": {
+          "description": "Default value if not provided"
+        },
+        "format": {
+          "type": "string",
+          "description": "Format hint for strings (requires type: string)",
+          "enum": ["uri", "email", "date-time", "date", "time", "uuid", "hostname", "ipv4", "ipv6", "regex"]
+        },
+        "enum": {
+          "type": "array",
+          "description": "Allowed values (for constrained inputs)",
+          "items": {
+            "anyOf": [
+              { "type": "string" },
+              { "type": "number" },
+              { "type": "boolean" },
+              { "type": "null" }
+            ]
+          },
+          "minItems": 1
+        },
+        "itemType": {
+          "type": "string",
+          "description": "Element type for array parameters (requires type: array)",
+          "enum": ["string", "number", "boolean", "object"]
+        },
+        "objectProperties": {
+          "type": "object",
+          "description": "Property definitions for object parameters (requires type: object). Named to avoid collision with JSON Schema 'properties' keyword.",
+          "additionalProperties": {
+            "$ref": "#/$defs/parameterDefinition"
+          },
+          "maxProperties": 32
+        }
+      },
+      "allOf": [
+        {
+          "if": { "required": ["format"] },
+          "then": { "properties": { "type": { "const": "string" } } }
+        },
+        {
+          "if": { "required": ["itemType"] },
+          "then": { "properties": { "type": { "const": "array" } } }
+        },
+        {
+          "if": { "required": ["objectProperties"] },
+          "then": { "properties": { "type": { "const": "object" } } }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "capabilityRequirement": {
+      "type": "object",
+      "description": "A required capability dependency",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Name of the required capability (must match target's metadata.name)"
+        },
+        "namespace": {
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Namespace of the required capability. Defaults to the referring capability's namespace."
+        },
+        "optional": {
+          "type": "boolean",
+          "description": "Whether this requirement is optional (resolved if available, doesn't block if absent)",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "capabilityStatus": {
+      "type": "object",
+      "description": "Status of the capability",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current phase",
+          "enum": ["Available", "Unavailable", "Deprecated"]
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          },
+          "maxItems": 32
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        },
+        "replacement": {
+          "type": "object",
+          "description": "Reference to replacement capability (when phase is Deprecated)",
+          "required": ["name"],
+          "properties": {
+            "name": {
+              "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+              "description": "Name of the replacement capability"
+            },
+            "namespace": {
+              "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+              "description": "Namespace of the replacement capability"
+            }
+          },
+          "additionalProperties": false
+        },
+        "deprecationMessage": {
+          "type": "string",
+          "description": "Message explaining deprecation reason and migration path",
+          "maxLength": 1024
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "phase": { "const": "Deprecated" } },
+            "required": ["phase"]
+          },
+          "then": {
+            "anyOf": [
+              { "required": ["replacement"] },
+              { "required": ["deprecationMessage"] }
+            ]
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

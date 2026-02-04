@@ -1,0 +1,22 @@
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: ${EXECUTION_NAME}
+  namespace: ${NAMESPACE:-default}
+spec:
+  goalRef:
+    name: ${GOAL_NAME}
+  planRef:
+    name: ${PLAN_NAME}
+  # Optional: specific binding to use
+  # bindingRef:
+  #   name: default-bindings
+  # Optional: execution parameters
+  # parameters:
+  #   mode: interactive    # interactive | autonomous
+  #   executor: claude-code
+  #   timeout: "4h"
+  #   retryPolicy: exponential
+  #   env:
+  #     DEBUG: "true"
+  #     LOG_LEVEL: "info"

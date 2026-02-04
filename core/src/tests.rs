@@ -1,0 +1,1426 @@
+//! Unit tests for planspec-core types and validation.
+
+use crate::*;
+use serde_json::json;
+
+mod serialization {
+    use super::*;
+
+    #[test]
+    fn goal_round_trip() {
+        let goal = Goal::new("my-goal", "default")
+            .with_description("Test goal")
+            .with_criterion("Must pass tests")
+            .with_priority(10);
+
+        let json = serde_json::to_string(&goal).unwrap();
+        let parsed: Goal = serde_json::from_str(&json).unwrap();
+        assert_eq!(goal, parsed);
+    }
+
+    #[test]
+    fn plan_round_trip() {
+        let plan = Plan::new("my-plan", "default")
+            .with_description("Test plan")
+            .with_series("test")
+            .with_version("1");
+
+        let json = serde_json::to_string(&plan).unwrap();
+        let parsed: Plan = serde_json::from_str(&json).unwrap();
+        assert_eq!(plan, parsed);
+    }
+
+    #[test]
+    fn capability_round_trip() {
+        let cap = Capability::new("code-gen", "default")
+            .with_description("Generate code")
+            .with_display_name("Code Generation")
+            .with_category("development");
+
+        let json = serde_json::to_string(&cap).unwrap();
+        let parsed: Capability = serde_json::from_str(&json).unwrap();
+        assert_eq!(cap, parsed);
+    }
+
+    #[test]
+    fn binding_round_trip() {
+        let binding = Binding::new("my-binding", "default")
+            .with_rule(BindingRule::for_capability("code-gen", "agent://claude"));
+
+        let json = serde_json::to_string(&binding).unwrap();
+        let parsed: Binding = serde_json::from_str(&json).unwrap();
+        assert_eq!(binding, parsed);
+    }
+
+    #[test]
+    fn execution_round_trip() {
+        let exec = Execution::new("my-exec", "default")
+            .with_plan_ref("my-plan")
+            .with_goal_ref("my-goal");
+
+        let json = serde_json::to_string(&exec).unwrap();
+        let parsed: Execution = serde_json::from_str(&json).unwrap();
+        assert_eq!(exec, parsed);
+    }
+
+    #[test]
+    fn gate_round_trip() {
+        let gate = Gate::new("my-gate", "default")
+            .with_gate_type(GateType::Approval)
+            .with_target_ref(TargetRef::execution("my-execution").with_node_id("deploy"))
+            .with_description("Test approval gate")
+            .with_reviewer("admin@example.com")
+            .with_required_approvers(1);
+
+        let json = serde_json::to_string(&gate).unwrap();
+        let parsed: Gate = serde_json::from_str(&json).unwrap();
+        assert_eq!(gate, parsed);
+    }
+
+    #[test]
+    fn acceptance_criteria_round_trip() {
+        let criteria = AcceptanceCriteria::ArtifactExists {
+            name: "Output exists".to_string(),
+            description: Some("Check output file".to_string()),
+            required: true,
+            path: "/tmp/output.txt".to_string(),
+            content_match: Some("success".to_string()),
+        };
+
+        let json = serde_json::to_string(&criteria).unwrap();
+        let parsed: AcceptanceCriteria = serde_json::from_str(&json).unwrap();
+        assert_eq!(criteria, parsed);
+
+        // Verify the type tag is present
+        assert!(json.contains("\"type\":\"artifact_exists\""));
+    }
+
+    #[test]
+    fn resource_enum_round_trip() {
+        let goal = Goal::new("my-goal", "default").with_description("Test");
+        let resource = Resource::Goal(goal.clone());
+
+        let json = serde_json::to_string(&resource).unwrap();
+        let parsed: Resource = serde_json::from_str(&json).unwrap();
+
+        match parsed {
+            Resource::Goal(g) => assert_eq!(g, goal),
+            _ => panic!("Expected Goal variant"),
+        }
+    }
+
+    #[test]
+    fn camel_case_serialization() {
+        let meta = ObjectMeta::new("test", "default").with_label("app.kubernetes.io/name", "test");
+
+        let json = serde_json::to_string(&meta).unwrap();
+
+        // Should use camelCase
+        assert!(json.contains("\"ownerReferences\"") || !json.contains("owner"));
+        assert!(!json.contains("owner_references"));
+    }
+}
+
+mod validation {
+    use super::*;
+
+    #[test]
+    fn valid_goal_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "A test goal"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn missing_kind_fails() {
+        let validator = Validator::new().unwrap();
+        let invalid = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "metadata": {
+                "name": "test",
+                "namespace": "default"
+            },
+            "spec": {}
+        });
+
+        let result = validator.validate_json(&invalid);
+        assert!(result.is_err());
+
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::MissingKind)));
+    }
+
+    #[test]
+    fn unknown_kind_fails() {
+        let validator = Validator::new().unwrap();
+        let invalid = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "UnknownThing",
+            "metadata": {
+                "name": "test",
+                "namespace": "default"
+            },
+            "spec": {}
+        });
+
+        let result = validator.validate_json(&invalid);
+        assert!(result.is_err());
+
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::UnknownKind(_))));
+    }
+
+    #[test]
+    fn invalid_name_format_fails() {
+        let validator = Validator::new().unwrap();
+        let invalid = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "Invalid_Name",  // underscores not allowed
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test"
+            }
+        });
+
+        let result = validator.validate_json(&invalid);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn valid_plan_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "A test plan",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "First task"
+                        },
+                        {
+                            "id": "task-2",
+                            "kind": "Task",
+                            "description": "Second task"
+                        }
+                    ],
+                    "edges": [
+                        { "from": "task-1", "to": "task-2" }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn cyclic_plan_fails() {
+        let validator = Validator::new().unwrap();
+        let cyclic_plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "cyclic-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "A cyclic plan",
+                "graph": {
+                    "nodes": [
+                        { "id": "a", "kind": "Task", "description": "A" },
+                        { "id": "b", "kind": "Task", "description": "B" },
+                        { "id": "c", "kind": "Task", "description": "C" }
+                    ],
+                    "edges": [
+                        { "from": "a", "to": "b" },
+                        { "from": "b", "to": "c" },
+                        { "from": "c", "to": "a" }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&cyclic_plan);
+        assert!(result.is_err());
+
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::CyclicGraph { .. })));
+    }
+
+    #[test]
+    fn invalid_edge_reference_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "bad-edges",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with bad edge",
+                "graph": {
+                    "nodes": [
+                        { "id": "task-1", "kind": "Task", "description": "Task 1" }
+                    ],
+                    "edges": [
+                        { "from": "task-1", "to": "nonexistent" }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+
+        let errors = result.unwrap_err();
+        assert!(errors
+            .iter()
+            .any(|e| matches!(e, ValidationError::InvalidEdgeReference { .. })));
+    }
+
+    #[test]
+    fn valid_gate_passes() {
+        let validator = Validator::new().unwrap();
+        let gate = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Gate",
+            "metadata": {
+                "name": "approval-gate",
+                "namespace": "default"
+            },
+            "spec": {
+                "gateType": "approval",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution",
+                    "nodeId": "deploy"
+                },
+                "description": "Requires approval before proceeding",
+                "reviewers": ["admin@example.com"],
+                "requiredApprovers": 1
+            }
+        });
+
+        assert!(validator.validate_json(&gate).is_ok());
+    }
+
+    #[test]
+    fn gate_with_invalid_type_fails() {
+        let validator = Validator::new().unwrap();
+        let gate = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Gate",
+            "metadata": {
+                "name": "approval-gate",
+                "namespace": "default"
+            },
+            "spec": {
+                "gateType": "invalid-type",
+                "targetRef": {
+                    "kind": "Execution",
+                    "name": "my-execution"
+                },
+                "description": "Should fail validation"
+            }
+        });
+
+        let result = validator.validate_json(&gate);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn plan_with_acceptance_criteria_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with acceptance criteria",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "Task with criteria",
+                            "acceptanceCriteria": [
+                                {
+                                    "type": "artifact_exists",
+                                    "name": "Output file exists",
+                                    "path": "/tmp/output.txt",
+                                    "required": true
+                                },
+                                {
+                                    "type": "test_passes",
+                                    "name": "Unit tests pass",
+                                    "command": "cargo",
+                                    "args": ["test"],
+                                    "expectedExitCode": 0
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn plan_with_gate_ref_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with gate node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "First task"
+                        },
+                        {
+                            "id": "approval",
+                            "kind": "Gate",
+                            "description": "Approval checkpoint",
+                            "gateRef": {
+                                "name": "my-gate",
+                                "namespace": "default"
+                            }
+                        },
+                        {
+                            "id": "task-2",
+                            "kind": "Task",
+                            "description": "Second task"
+                        }
+                    ],
+                    "edges": [
+                        { "from": "task-1", "to": "approval" },
+                        { "from": "approval", "to": "task-2" }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    // --- DNS Label / Name Validation ---
+
+    #[test]
+    fn name_exceeding_63_chars_fails() {
+        let validator = Validator::new().unwrap();
+        let long_name = "a".repeat(64); // 64 chars, exceeds DNS label limit
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": long_name,
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_err());
+    }
+
+    #[test]
+    fn name_at_63_chars_passes() {
+        let validator = Validator::new().unwrap();
+        let name = "a".repeat(63); // exactly 63 chars
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": name,
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn name_with_uppercase_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "MyGoal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_err());
+    }
+
+    #[test]
+    fn name_starting_with_hyphen_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "-invalid",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_err());
+    }
+
+    // --- Timeout Pattern Validation ---
+
+    #[test]
+    fn valid_go_duration_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "timeout": "1h30m"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn timeout_with_nanoseconds_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "timeout": "500ns"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn timeout_with_days_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "timeout": "7d"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_err());
+    }
+
+    #[test]
+    fn timeout_with_invalid_unit_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "timeout": "10w"
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_err());
+    }
+
+    // --- Label Selector Validation ---
+
+    #[test]
+    fn label_selector_in_with_values_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "env",
+                            "operator": "In",
+                            "values": ["prod", "staging"]
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn label_selector_in_without_values_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "env",
+                            "operator": "In"
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&goal);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("requires non-empty"));
+    }
+
+    #[test]
+    fn label_selector_notin_with_empty_values_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "env",
+                            "operator": "NotIn",
+                            "values": []
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&goal);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn label_selector_exists_without_values_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "env",
+                            "operator": "Exists"
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    #[test]
+    fn label_selector_exists_with_values_fails() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "env",
+                            "operator": "Exists",
+                            "values": ["prod"]
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&goal);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("must not have"));
+    }
+
+    #[test]
+    fn label_selector_doesnotexist_without_values_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "planSelector": {
+                    "matchExpressions": [
+                        {
+                            "key": "deprecated",
+                            "operator": "DoesNotExist"
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    // --- Plan Series/Version Co-dependency ---
+
+    #[test]
+    fn plan_with_series_and_version_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test plan",
+                "series": "my-series",
+                "version": "v1",
+                "graph": {
+                    "nodes": [{"id": "task-1", "kind": "Task", "description": "Do it"}]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn plan_with_series_but_no_version_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test plan",
+                "series": "my-series",
+                "graph": {
+                    "nodes": [{"id": "task-1", "kind": "Task", "description": "Do it"}]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("'series' requires 'version'"));
+    }
+
+    #[test]
+    fn plan_with_version_but_no_series_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test plan",
+                "version": "v1",
+                "graph": {
+                    "nodes": [{"id": "task-1", "kind": "Task", "description": "Do it"}]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("'version' requires 'series'"));
+    }
+
+    #[test]
+    fn plan_without_series_or_version_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test plan",
+                "graph": {
+                    "nodes": [{"id": "task-1", "kind": "Task", "description": "Do it"}]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    // --- Graph Digest Pattern ---
+
+    #[test]
+    fn valid_graph_digest_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test plan",
+                "graphDigest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "graph": {
+                    "nodes": [{"id": "task-1", "kind": "Task", "description": "Do it"}]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    // --- Acceptance Criteria ID ---
+
+    #[test]
+    fn acceptance_criterion_with_valid_id_passes() {
+        let validator = Validator::new().unwrap();
+        let goal = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Goal",
+            "metadata": {
+                "name": "test-goal",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Test",
+                "acceptanceCriteria": [
+                    {
+                        "id": "tests-pass",
+                        "description": "All tests must pass"
+                    }
+                ]
+            }
+        });
+
+        assert!(validator.validate_json(&goal).is_ok());
+    }
+
+    // --- Kind-specific Node Validation ---
+
+    #[test]
+    fn gate_node_with_gate_ref_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with gate node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "approval",
+                            "kind": "Gate",
+                            "gateRef": {
+                                "name": "approval-gate"
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn gate_node_without_gate_ref_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with invalid gate node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "approval",
+                            "kind": "Gate",
+                            "description": "Missing gateRef"
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("requires 'gateRef'"));
+    }
+
+    #[test]
+    fn group_node_with_children_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with group node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "task-1",
+                            "kind": "Task",
+                            "description": "First task"
+                        },
+                        {
+                            "id": "task-2",
+                            "kind": "Task",
+                            "description": "Second task"
+                        },
+                        {
+                            "id": "parallel-group",
+                            "kind": "Group",
+                            "children": ["task-1", "task-2"],
+                            "mode": "parallel"
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn group_node_without_children_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with invalid group node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "empty-group",
+                            "kind": "Group",
+                            "description": "Missing children"
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("requires 'children'"));
+    }
+
+    #[test]
+    fn group_node_with_empty_children_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with invalid group node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "empty-group",
+                            "kind": "Group",
+                            "children": []
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("at least one child"));
+    }
+
+    #[test]
+    fn external_node_with_external_ref_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with external node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "external-dep",
+                            "kind": "External",
+                            "externalRef": {
+                                "type": "uri",
+                                "uri": "https://api.example.com/status"
+                            }
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+
+    #[test]
+    fn external_node_without_external_ref_fails() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with invalid external node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "external-dep",
+                            "kind": "External",
+                            "description": "Missing externalRef"
+                        }
+                    ]
+                }
+            }
+        });
+
+        let result = validator.validate_json(&plan);
+        assert!(result.is_err());
+        let err_str = format!("{:?}", result.unwrap_err());
+        assert!(err_str.contains("requires 'externalRef'"));
+    }
+
+    #[test]
+    fn task_node_without_extra_fields_passes() {
+        let validator = Validator::new().unwrap();
+        let plan = json!({
+            "apiVersion": "planspec.io/v1alpha1",
+            "kind": "Plan",
+            "metadata": {
+                "name": "test-plan",
+                "namespace": "default"
+            },
+            "spec": {
+                "description": "Plan with minimal task node",
+                "graph": {
+                    "nodes": [
+                        {
+                            "id": "simple-task",
+                            "kind": "Task"
+                        }
+                    ]
+                }
+            }
+        });
+
+        assert!(validator.validate_json(&plan).is_ok());
+    }
+}
+
+mod graph {
+    use super::*;
+
+    fn make_graph(nodes: Vec<(&str, &str)>, edges: Vec<(&str, &str)>) -> Graph {
+        Graph {
+            nodes: nodes
+                .into_iter()
+                .map(|(id, desc)| Node::task(id, desc))
+                .collect(),
+            edges: edges
+                .into_iter()
+                .map(|(from, to)| Edge::new(from, to))
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn empty_graph_is_acyclic() {
+        let graph = Graph::default();
+        assert!(graph.is_acyclic());
+    }
+
+    #[test]
+    fn single_node_is_acyclic() {
+        let graph = make_graph(vec![("a", "Task A")], vec![]);
+        assert!(graph.is_acyclic());
+    }
+
+    #[test]
+    fn linear_chain_is_acyclic() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C")],
+            vec![("a", "b"), ("b", "c")],
+        );
+        assert!(graph.is_acyclic());
+    }
+
+    #[test]
+    fn diamond_is_acyclic() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+            vec![("a", "b"), ("a", "c"), ("b", "d"), ("c", "d")],
+        );
+        assert!(graph.is_acyclic());
+    }
+
+    #[test]
+    fn simple_cycle_detected() {
+        let graph = make_graph(vec![("a", "A"), ("b", "B")], vec![("a", "b"), ("b", "a")]);
+        assert!(!graph.is_acyclic());
+        assert!(graph.detect_cycle().is_some());
+    }
+
+    #[test]
+    fn self_loop_detected() {
+        let graph = make_graph(vec![("a", "A")], vec![("a", "a")]);
+        assert!(!graph.is_acyclic());
+    }
+
+    #[test]
+    fn complex_cycle_detected() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C"), ("d", "D")],
+            vec![("a", "b"), ("b", "c"), ("c", "d"), ("d", "b")],
+        );
+        assert!(!graph.is_acyclic());
+    }
+
+    #[test]
+    fn roots_are_correct() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C")],
+            vec![("a", "b"), ("a", "c")],
+        );
+        let roots = graph.roots();
+        assert_eq!(roots.len(), 1);
+        assert_eq!(roots[0].id, "a");
+    }
+
+    #[test]
+    fn leaves_are_correct() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C")],
+            vec![("a", "b"), ("a", "c")],
+        );
+        let leaves = graph.leaves();
+        assert_eq!(leaves.len(), 2);
+        let leaf_ids: Vec<_> = leaves.iter().map(|n| n.id.as_str()).collect();
+        assert!(leaf_ids.contains(&"b"));
+        assert!(leaf_ids.contains(&"c"));
+    }
+
+    #[test]
+    fn topological_order_is_valid() {
+        let graph = make_graph(
+            vec![("a", "A"), ("b", "B"), ("c", "C")],
+            vec![("a", "b"), ("b", "c")],
+        );
+        let order = graph.topological_order().unwrap();
+        let ids: Vec<_> = order.iter().map(|n| n.id.as_str()).collect();
+
+        // a must come before b, b must come before c
+        let pos_a = ids.iter().position(|&id| id == "a").unwrap();
+        let pos_b = ids.iter().position(|&id| id == "b").unwrap();
+        let pos_c = ids.iter().position(|&id| id == "c").unwrap();
+
+        assert!(pos_a < pos_b);
+        assert!(pos_b < pos_c);
+    }
+
+    #[test]
+    fn topological_order_fails_on_cycle() {
+        let graph = make_graph(vec![("a", "A"), ("b", "B")], vec![("a", "b"), ("b", "a")]);
+        assert!(graph.topological_order().is_err());
+    }
+}
+
+mod builders {
+    use super::*;
+
+    #[test]
+    fn object_meta_builder() {
+        let meta = ObjectMeta::new("test", "default")
+            .with_label("app", "myapp")
+            .with_label("env", "prod")
+            .with_annotation("note", "important");
+
+        assert_eq!(meta.name, "test");
+        assert_eq!(meta.namespace, "default");
+        assert_eq!(meta.labels.get("app"), Some(&"myapp".to_string()));
+        assert_eq!(meta.labels.get("env"), Some(&"prod".to_string()));
+        assert_eq!(meta.annotations.get("note"), Some(&"important".to_string()));
+    }
+
+    #[test]
+    fn goal_builder() {
+        let goal = Goal::new("my-goal", "default")
+            .with_description("Do something")
+            .with_criterion("It works")
+            .with_criterion("It's fast")
+            .with_timeout("24h")
+            .with_priority(100);
+
+        assert_eq!(goal.metadata.name, "my-goal");
+        assert_eq!(goal.spec.description, "Do something");
+        assert_eq!(goal.spec.acceptance_criteria.len(), 2);
+        assert_eq!(goal.spec.timeout, Some("24h".to_string()));
+        assert_eq!(goal.spec.priority, Some(100));
+    }
+
+    #[test]
+    fn plan_builder() {
+        let plan = Plan::new("my-plan", "default")
+            .with_description("Implementation plan")
+            .with_goal_ref("my-goal")
+            .with_series("implementation")
+            .with_version("1");
+
+        assert_eq!(plan.metadata.name, "my-plan");
+        assert_eq!(plan.spec.description, "Implementation plan");
+        assert_eq!(plan.spec.goal_ref.unwrap().name, "my-goal");
+        assert_eq!(plan.spec.series, Some("implementation".to_string()));
+        assert_eq!(plan.spec.version, Some("1".to_string()));
+    }
+
+    #[test]
+    fn node_builder() {
+        let node = Node::task("my-task", "Do the thing")
+            .with_capability("code-gen")
+            .with_when("always");
+
+        assert_eq!(node.id, "my-task");
+        assert_eq!(node.kind, NodeKind::Task);
+        assert_eq!(node.description, Some("Do the thing".to_string()));
+        assert_eq!(node.capability_refs.len(), 1);
+        assert_eq!(node.capability_refs[0].name, "code-gen");
+        assert_eq!(node.when, Some("always".to_string()));
+    }
+
+    #[test]
+    fn edge_builder() {
+        let hard = Edge::new("a", "b");
+        assert_eq!(hard.from, "a");
+        assert_eq!(hard.to, "b");
+        assert!(hard.edge_type.is_none());
+
+        let soft = Edge::soft("c", "d");
+        assert_eq!(soft.edge_type, Some(EdgeType::Soft));
+    }
+
+    #[test]
+    fn binding_rule_builders() {
+        let cap_rule = BindingRule::for_capability("code-gen", "agent://claude");
+        assert_eq!(cap_rule.selector.capability_ref.unwrap().name, "code-gen");
+        assert_eq!(cap_rule.target.provider, "agent://claude");
+
+        let node_rule = BindingRule::for_node("my-plan", "task-1", "agent://gpt");
+        assert_eq!(node_rule.selector.plan_ref.unwrap().name, "my-plan");
+        assert_eq!(node_rule.selector.node_id, Some("task-1".to_string()));
+        assert_eq!(node_rule.target.provider, "agent://gpt");
+    }
+}
+
+mod api_types {
+    use super::*;
+
+    #[test]
+    fn watch_event_builders() {
+        let obj = json!({"kind": "Goal", "metadata": {"name": "test"}});
+
+        let added = WatchEvent::added(obj.clone(), "100");
+        assert_eq!(added.event_type, WatchEventType::Added);
+        assert_eq!(added.rev, "100");
+
+        let modified = WatchEvent::modified(obj.clone(), "101");
+        assert_eq!(modified.event_type, WatchEventType::Modified);
+
+        let deleted = WatchEvent::deleted(obj, "102");
+        assert_eq!(deleted.event_type, WatchEventType::Deleted);
+    }
+
+    #[test]
+    fn status_builders() {
+        let not_found = Status::not_found("Goal", "my-goal");
+        assert_eq!(not_found.code, 404);
+        assert_eq!(not_found.reason, Some(StatusReason::NotFound));
+        assert_eq!(not_found.status, StatusResult::Failure);
+
+        let invalid = Status::invalid("Bad data");
+        assert_eq!(invalid.code, 400);
+        assert_eq!(invalid.reason, Some(StatusReason::Invalid));
+
+        let conflict = Status::conflict("Version mismatch");
+        assert_eq!(conflict.code, 409);
+        assert_eq!(conflict.reason, Some(StatusReason::Conflict));
+
+        let success = Status::success("Created", 201);
+        assert_eq!(success.code, 201);
+        assert_eq!(success.status, StatusResult::Success);
+    }
+
+    #[test]
+    fn resource_list_builder() {
+        let goals = vec![
+            Goal::new("goal-1", "default"),
+            Goal::new("goal-2", "default"),
+        ];
+
+        let list = ResourceList::new("GoalList", goals);
+        assert_eq!(list.kind, "GoalList");
+        assert_eq!(list.items.len(), 2);
+        assert_eq!(list.api_version, API_VERSION);
+    }
+
+    #[test]
+    fn apply_result() {
+        let mut result = ApplyResult::new();
+        assert!(result.is_success());
+
+        result.errors.push(ApplyError {
+            resource: "Goal/bad".to_string(),
+            message: "Invalid".to_string(),
+        });
+        assert!(!result.is_success());
+    }
+}

@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace -- -D warnings
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build all crates
+        run: cargo build --workspace --release
+
+      - name: Upload CLI binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: planspec-cli
+          path: target/release/planspec
+
+  test-unit:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run unit tests
+        run: |
+          cargo test -p planspec-core
+          cargo test -p planspec-server
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: planspec-cli
+          path: target/release/
+
+      - name: Make CLI executable
+        run: chmod +x target/release/planspec
+
+      - name: Run integration tests
+        run: cargo test -p planspec --test integration_test
+        # Tests use CARGO_BIN_EXE_planspec and spawn ephemeral server with in-memory database
+
+  validate-specs:
+    name: Validate Specs
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download CLI binary
+        uses: actions/download-artifact@v4
+        with:
+          name: planspec-cli
+          path: target/release/
+
+      - name: Make CLI executable
+        run: chmod +x target/release/planspec
+
+      - name: Validate PlanSpec resources
+        run: target/release/planspec validate -d docs/planspec -R
+
+      - name: Validate example specs
+        run: target/release/planspec validate -d docs/examples -R
+
+  schema-validation:
+    name: Schema Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ajv-cli
+        run: npm install -g ajv-cli ajv-formats
+
+      - name: Validate JSON schemas
+        run: |
+          # Validate base schemas (no cross-references to other v1alpha1 schemas)
+          for schema in schemas/v1alpha1/{goal,plan,capability,binding,execution,gate}.schema.json; do
+            echo "Validating $schema..."
+            ajv compile -s "$schema" --spec=draft2020 -c ajv-formats \
+              -r "schemas/common/*.schema.json" || exit 1
+          done
+
+          # Validate document.schema.json (references other v1alpha1 schemas)
+          echo "Validating schemas/v1alpha1/document.schema.json..."
+          ajv compile --spec=draft2020 -c ajv-formats \
+            -r "schemas/common/*.schema.json" \
+            -r schemas/v1alpha1/goal.schema.json \
+            -r schemas/v1alpha1/plan.schema.json \
+            -r schemas/v1alpha1/capability.schema.json \
+            -r schemas/v1alpha1/binding.schema.json \
+            -r schemas/v1alpha1/execution.schema.json \
+            -r schemas/v1alpha1/gate.schema.json \
+            -s schemas/v1alpha1/document.schema.json

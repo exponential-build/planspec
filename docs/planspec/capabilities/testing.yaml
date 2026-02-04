@@ -1,0 +1,101 @@
+# Testing and Execution Capabilities
+#
+# Capabilities related to testing and code execution.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: test-generation
+  namespace: planspec
+  labels:
+    category: testing
+spec:
+  displayName: "Test Generation"
+  description: "Generate tests for existing code"
+  category: testing
+  inputs:
+    - name: targetCode
+      type: array
+      description: "Files or functions to test"
+      required: true
+    - name: testFramework
+      type: string
+      description: "Test framework to use"
+      default: "jest"
+    - name: coverage
+      type: string
+      description: "Target coverage percentage"
+      default: "80%"
+    - name: testTypes
+      type: array
+      description: "Types of tests to generate (unit, integration, e2e)"
+      default: ["unit"]
+  outputs:
+    - name: testFiles
+      type: array
+      description: "Generated test files"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: test-execution
+  namespace: planspec
+  labels:
+    category: testing
+spec:
+  displayName: "Test Execution"
+  description: "Execute test suites and report results"
+  category: testing
+  inputs:
+    - name: testCommand
+      type: string
+      description: "Command to run tests"
+      default: "npm test"
+    - name: coverage
+      type: boolean
+      description: "Generate coverage report"
+      default: true
+    - name: failFast
+      type: boolean
+      description: "Stop on first failure"
+      default: false
+  outputs:
+    - name: results
+      type: object
+      description: "Test execution results"
+    - name: coverage
+      type: object
+      description: "Coverage report"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-execution
+  namespace: planspec
+  labels:
+    category: execution
+spec:
+  displayName: "Code Execution"
+  description: "Execute code, scripts, or shell commands"
+  category: execution
+  inputs:
+    - name: command
+      type: string
+      description: "Command or script to execute"
+      required: true
+    - name: workingDirectory
+      type: string
+      description: "Working directory for execution"
+    - name: environment
+      type: object
+      description: "Environment variables"
+  outputs:
+    - name: exitCode
+      type: integer
+      description: "Exit code of the command"
+    - name: stdout
+      type: string
+      description: "Standard output"
+    - name: stderr
+      type: string
+      description: "Standard error"

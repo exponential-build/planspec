@@ -1,0 +1,66 @@
+{
+  "$id": "https://planspec.io/schemas/conformance/rbac/role.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Role",
+  "description": "Defines permissions within a namespace (RBAC conformance profile)",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "rules"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Role"
+    },
+    "metadata": {
+      "$ref": "../../common/metadata.schema.json"
+    },
+    "rules": {
+      "type": "array",
+      "description": "List of policy rules",
+      "items": {
+        "$ref": "#/$defs/policyRule"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "policyRule": {
+      "type": "object",
+      "description": "A policy rule granting permissions",
+      "required": ["resources", "verbs"],
+      "properties": {
+        "resources": {
+          "type": "array",
+          "description": "Resources this rule applies to",
+          "items": {
+            "type": "string",
+            "enum": ["goals", "plans", "capabilities", "bindings", "executions", "*"]
+          },
+          "minItems": 1
+        },
+        "verbs": {
+          "type": "array",
+          "description": "Allowed actions",
+          "items": {
+            "type": "string",
+            "enum": ["get", "list", "watch", "create", "update", "delete", "*"]
+          },
+          "minItems": 1
+        },
+        "resourceNames": {
+          "type": "array",
+          "description": "Specific resource names (if empty, applies to all)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,34 @@
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: ${CAPABILITY_NAME}
+  namespace: ${NAMESPACE:-default}
+spec:
+  displayName: "${DISPLAY_NAME}"
+  description: "${DESCRIPTION}"
+  category: ${CATEGORY:-general}  # kebab-case: code-generation, testing, documentation
+  # Optional: input parameters
+  # inputs:
+  #   - name: language
+  #     type: string
+  #     description: "Programming language to use"
+  #     required: true
+  #     enum: ["rust", "python", "typescript"]
+  #   - name: verbose
+  #     type: boolean
+  #     description: "Enable verbose output"
+  #     default: false
+  # Optional: output artifacts
+  # outputs:
+  #   - name: result
+  #     type: string
+  #     description: "Generated output"
+  #   - name: files
+  #     type: array
+  #     itemType: string
+  #     description: "List of created file paths"
+  # Optional: capability dependencies (tech tree)
+  # requirements:
+  #   - name: code-analysis
+  #   - name: testing
+  #     optional: true

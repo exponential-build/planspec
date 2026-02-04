@@ -1,0 +1,129 @@
+{
+  "$id": "https://planspec.io/schemas/common/metadata.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ObjectMeta",
+  "description": "Metadata common to all PlanSpec resources",
+  "type": "object",
+  "required": ["name", "namespace"],
+  "properties": {
+    "name": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Unique identifier within the namespace. Must be DNS label format."
+    },
+    "namespace": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Namespace for resource isolation. Must be DNS label format."
+    },
+    "uid": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/uid" }],
+      "description": "System-generated unique identifier. Clients MUST NOT set this field.",
+      "readOnly": true
+    },
+    "resourceVersion": {
+      "type": "string",
+      "description": "Optimistic concurrency control token. Clients MUST NOT set this field on create.",
+      "readOnly": true
+    },
+    "generation": {
+      "type": "integer",
+      "description": "Incremented on spec changes only. Clients MUST NOT set this field.",
+      "minimum": 0,
+      "readOnly": true
+    },
+    "creationTimestamp": {
+      "type": "string",
+      "description": "RFC3339 timestamp of when the resource was created. Clients MUST NOT set this field.",
+      "format": "date-time",
+      "readOnly": true
+    },
+    "deletionTimestamp": {
+      "type": "string",
+      "description": "RFC3339 timestamp of when the resource was requested for deletion. Set by server when delete is called. Clients MUST NOT set this field.",
+      "format": "date-time",
+      "readOnly": true
+    },
+    "deletionGracePeriodSeconds": {
+      "type": "integer",
+      "description": "Number of seconds before the resource should be deleted. Set by server when deletion is scheduled; absent when not pending deletion. Clients MUST NOT set this field.",
+      "minimum": 0,
+      "readOnly": true
+    },
+    "finalizers": {
+      "type": "array",
+      "description": "Qualified names of finalizers that must complete before the resource can be deleted. Prevents premature garbage collection.",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+        "maxLength": 253
+      }
+    },
+    "labels": {
+      "type": "object",
+      "description": "Key-value pairs for selection and organization",
+      "additionalProperties": {
+        "$ref": "types.schema.json#/$defs/labelValue"
+      },
+      "propertyNames": {
+        "$ref": "types.schema.json#/$defs/labelKey"
+      },
+      "maxProperties": 256
+    },
+    "annotations": {
+      "type": "object",
+      "description": "Key-value pairs for tooling and extensions",
+      "additionalProperties": {
+        "type": "string",
+        "maxLength": 65536
+      },
+      "propertyNames": {
+        "$ref": "types.schema.json#/$defs/labelKey"
+      },
+      "maxProperties": 256
+    },
+    "ownerReferences": {
+      "type": "array",
+      "description": "References to owning resources for cascading deletion",
+      "items": {
+        "$ref": "#/$defs/ownerReference"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "ownerReference": {
+      "type": "object",
+      "description": "Reference to an owning resource",
+      "required": ["apiVersion", "kind", "name", "uid"],
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "description": "API version of the owner"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Kind of the owner"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the owner"
+        },
+        "uid": {
+          "$ref": "types.schema.json#/$defs/uid",
+          "description": "UID of the owner"
+        },
+        "controller": {
+          "type": "boolean",
+          "description": "If true, this is the managing controller",
+          "default": false
+        },
+        "blockOwnerDeletion": {
+          "type": "boolean",
+          "description": "If true, block owner deletion until this resource is deleted",
+          "default": false
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

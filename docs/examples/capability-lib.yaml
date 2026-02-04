@@ -1,0 +1,321 @@
+# Capability Library Example
+#
+# Reusable capability definitions that can be referenced by Plans.
+# These capabilities define the "what" agents can do, not "how" they do it.
+---
+# Research Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: research
+  namespace: team-platform
+  labels:
+    category: analysis
+spec:
+  displayName: "Research"
+  description: "Research topics, gather information, and synthesize findings"
+  category: analysis
+  inputs:
+    - name: topic
+      type: string
+      description: "The topic to research"
+      required: true
+    - name: depth
+      type: string
+      description: "Research depth: shallow, moderate, deep"
+      default: "moderate"
+    - name: sources
+      type: array
+      description: "Preferred sources to consult"
+  outputs:
+    - name: findings
+      type: object
+      description: "Structured research findings"
+    - name: sources
+      type: array
+      description: "List of sources consulted"
+---
+# Code Analysis Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-analysis
+  namespace: team-platform
+  labels:
+    category: development
+spec:
+  displayName: "Code Analysis"
+  description: "Analyze code structure, patterns, and dependencies"
+  category: development
+  inputs:
+    - name: paths
+      type: array
+      description: "File or directory paths to analyze"
+      required: true
+    - name: language
+      type: string
+      description: "Programming language (auto-detected if not specified)"
+    - name: focus
+      type: array
+      description: "Specific aspects to focus on (e.g., security, performance)"
+  outputs:
+    - name: analysis
+      type: object
+      description: "Structured analysis results"
+    - name: recommendations
+      type: array
+      description: "Actionable recommendations"
+---
+# Code Generation Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-generation
+  namespace: team-platform
+  labels:
+    category: development
+spec:
+  displayName: "Code Generation"
+  description: "Generate code from specifications and requirements"
+  category: development
+  inputs:
+    - name: specification
+      type: string
+      description: "What to generate"
+      required: true
+    - name: language
+      type: string
+      description: "Target programming language"
+      required: true
+    - name: framework
+      type: string
+      description: "Framework to use (e.g., react, express)"
+    - name: targetFiles
+      type: array
+      description: "Files to create or modify"
+    - name: style
+      type: object
+      description: "Code style preferences"
+  outputs:
+    - name: files
+      type: array
+      description: "Generated or modified files"
+    - name: changes
+      type: object
+      description: "Summary of changes made"
+  requirements:
+    - name: code-analysis
+      optional: true
+---
+# Test Generation Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: test-generation
+  namespace: team-platform
+  labels:
+    category: testing
+spec:
+  displayName: "Test Generation"
+  description: "Generate tests for existing code"
+  category: testing
+  inputs:
+    - name: targetCode
+      type: array
+      description: "Files or functions to test"
+      required: true
+    - name: testFramework
+      type: string
+      description: "Test framework to use"
+      default: "jest"
+    - name: coverage
+      type: string
+      description: "Target coverage percentage"
+      default: "80%"
+    - name: testTypes
+      type: array
+      description: "Types of tests to generate (unit, integration, e2e)"
+      default: ["unit"]
+  outputs:
+    - name: testFiles
+      type: array
+      description: "Generated test files"
+---
+# Test Execution Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: test-execution
+  namespace: team-platform
+  labels:
+    category: testing
+spec:
+  displayName: "Test Execution"
+  description: "Execute test suites and report results"
+  category: testing
+  inputs:
+    - name: testCommand
+      type: string
+      description: "Command to run tests"
+      default: "npm test"
+    - name: coverage
+      type: boolean
+      description: "Generate coverage report"
+      default: true
+    - name: failFast
+      type: boolean
+      description: "Stop on first failure"
+      default: false
+  outputs:
+    - name: results
+      type: object
+      description: "Test execution results"
+    - name: coverage
+      type: object
+      description: "Coverage report"
+---
+# Security Scan Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: security-scan
+  namespace: team-platform
+  labels:
+    category: security
+spec:
+  displayName: "Security Scan"
+  description: "Scan code for security vulnerabilities"
+  category: security
+  inputs:
+    - name: scanType
+      type: string
+      description: "Type of scan: sast, dast, dependency"
+      required: true
+    - name: paths
+      type: array
+      description: "Paths to scan"
+    - name: severity
+      type: string
+      description: "Minimum severity to report"
+      default: "medium"
+    - name: focus
+      type: array
+      description: "Specific security concerns to focus on"
+  outputs:
+    - name: vulnerabilities
+      type: array
+      description: "List of vulnerabilities found"
+    - name: riskScore
+      type: number
+      description: "Overall risk score"
+    - name: recommendations
+      type: array
+      description: "Remediation recommendations"
+---
+# Documentation Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: documentation
+  namespace: team-platform
+  labels:
+    category: documentation
+spec:
+  displayName: "Documentation"
+  description: "Generate or update documentation"
+  category: documentation
+  inputs:
+    - name: type
+      type: string
+      description: "Type of documentation: api, user-guide, readme, changelog"
+      required: true
+    - name: sourcePath
+      type: string
+      description: "Source code or content path"
+    - name: format
+      type: string
+      description: "Output format: markdown, html, pdf"
+      default: "markdown"
+    - name: audience
+      type: string
+      description: "Target audience: developer, user, operator"
+      default: "developer"
+  outputs:
+    - name: documents
+      type: array
+      description: "Generated documentation files"
+---
+# Code Review Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: code-review
+  namespace: team-platform
+  labels:
+    category: development
+spec:
+  displayName: "Code Review"
+  description: "Review code changes and provide feedback"
+  category: development
+  inputs:
+    - name: changes
+      type: object
+      description: "Code changes to review (diff or file list)"
+      required: true
+    - name: focus
+      type: array
+      description: "Aspects to focus on (correctness, style, security, performance)"
+      default: ["correctness", "security"]
+    - name: context
+      type: string
+      description: "Additional context about the changes"
+  outputs:
+    - name: comments
+      type: array
+      description: "Review comments"
+    - name: approval
+      type: boolean
+      description: "Whether the changes are approved"
+    - name: suggestions
+      type: array
+      description: "Improvement suggestions"
+  requirements:
+    - name: code-analysis
+      optional: true
+    - name: security-scan
+      optional: true
+---
+# Refactoring Capability
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: refactoring
+  namespace: team-platform
+  labels:
+    category: development
+spec:
+  displayName: "Refactoring"
+  description: "Refactor code to improve structure without changing behavior"
+  category: development
+  inputs:
+    - name: targetCode
+      type: array
+      description: "Files or modules to refactor"
+      required: true
+    - name: goals
+      type: array
+      description: "Refactoring goals (e.g., extract-function, simplify-logic)"
+    - name: constraints
+      type: object
+      description: "Constraints to respect (API stability, performance)"
+  outputs:
+    - name: changes
+      type: array
+      description: "Refactored code changes"
+    - name: explanation
+      type: string
+      description: "Explanation of changes made"
+  requirements:
+    - name: code-analysis
+    - name: test-execution
+      optional: true

@@ -1,0 +1,286 @@
+# SSO Integration Example
+#
+# A complex multi-step Goal with a Plan that includes research,
+# implementation, testing, and review gates.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: enable-google-sso
+  namespace: team-platform
+  labels:
+    team: platform
+    priority: high
+    security: required
+spec:
+  description: "Enable Google SSO for the application"
+  constraints:
+    frontend: react
+    backend: nodejs
+    idp: google
+    protocol: oidc
+  acceptanceCriteria:
+    - description: "Users can sign in with their Google account"
+    - description: "Existing sessions remain valid during rollout"
+    - description: "Session tokens are properly validated"
+    - description: "Security review is completed"
+    - description: "Rollback procedure is documented"
+  planSelector:
+    matchLabels:
+      planspec.io/goal: enable-google-sso
+  timeout: "168h"
+  priority: 10
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: sso-implementation-v2
+  namespace: team-platform
+  labels:
+    planspec.io/goal: enable-google-sso
+    planspec.io/series: sso
+    planspec.io/version: "2"
+spec:
+  goalRef:
+    name: enable-google-sso
+  series: sso
+  version: "2"
+  supersedes:
+    - name: sso-implementation-v1
+  description: "Implementation plan for Google SSO integration (v2)"
+  graph:
+    nodes:
+      # Research phase
+      - id: research-oauth
+        kind: Task
+        description: "Research OAuth2/OIDC requirements and Google's implementation"
+        capabilityRef:
+          name: research
+        outputs:
+          - oauth-requirements
+          - google-oidc-docs
+        timeout: "2h"
+
+      - id: analyze-codebase
+        kind: Task
+        description: "Analyze existing authentication code and identify integration points"
+        capabilityRef:
+          name: code-analysis
+        inputs:
+          paths:
+            - "src/auth/"
+            - "src/middleware/"
+            - "src/api/routes/auth.ts"
+        outputs:
+          - integration-points
+          - affected-files
+        timeout: "1h"
+
+      # Implementation phase
+      - id: implement-backend
+        kind: Task
+        description: "Implement backend OAuth2 flow with Google OIDC"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          framework: nodejs
+          targetFiles:
+            - "src/auth/google-oidc.ts"
+            - "src/auth/session.ts"
+            - "src/api/routes/auth.ts"
+        timeout: "4h"
+        retries: 2
+
+      - id: implement-frontend
+        kind: Task
+        description: "Implement frontend login with Google button"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          framework: react
+          targetFiles:
+            - "src/components/Login.tsx"
+            - "src/hooks/useAuth.ts"
+        timeout: "2h"
+        retries: 2
+
+      - id: implement-tests
+        kind: Task
+        description: "Write integration tests for SSO flow"
+        capabilityRef:
+          name: test-generation
+        inputs:
+          testFramework: jest
+          coverage: "80%"
+        timeout: "2h"
+
+      # Verification phase
+      - id: run-tests
+        kind: Task
+        description: "Execute full test suite"
+        capabilityRef:
+          name: test-execution
+        timeout: "30m"
+
+      - id: security-scan
+        kind: Task
+        description: "Run security analysis on authentication code"
+        capabilityRef:
+          name: security-scan
+        inputs:
+          scanType: "sast"
+          focus: "authentication"
+        timeout: "1h"
+
+      # Review gates
+      - id: code-review
+        kind: Gate
+        description: "Code review checkpoint - await human approval"
+        gateRef:
+          name: code-review-gate
+
+      - id: security-review
+        kind: Gate
+        description: "Security team review checkpoint"
+        gateRef:
+          name: security-review-gate
+
+      # Documentation
+      - id: write-docs
+        kind: Task
+        description: "Write documentation and rollback procedure"
+        capabilityRef:
+          name: documentation
+        outputs:
+          - user-guide
+          - rollback-procedure
+        timeout: "1h"
+
+    edges:
+      # Research happens first, in parallel
+      - from: research-oauth
+        to: implement-backend
+      - from: analyze-codebase
+        to: implement-backend
+      - from: analyze-codebase
+        to: implement-frontend
+
+      # Backend and frontend can happen in parallel
+      - from: implement-backend
+        to: implement-tests
+      - from: implement-frontend
+        to: implement-tests
+
+      # Tests after implementation
+      - from: implement-tests
+        to: run-tests
+      - from: implement-tests
+        to: security-scan
+
+      # Code review after tests pass
+      - from: run-tests
+        to: code-review
+      - from: security-scan
+        to: security-review
+
+      # Docs after reviews
+      - from: code-review
+        to: write-docs
+      - from: security-review
+        to: write-docs
+---
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: platform-bindings
+  namespace: team-platform
+spec:
+  rules:
+    # Default bindings by capability
+    - selector:
+        capabilityRef:
+          name: research
+      target:
+        provider: "agent://claude-opus"
+        config:
+          model: claude-opus-4
+          tools:
+            - web-search
+            - documentation-reader
+
+    - selector:
+        capabilityRef:
+          name: code-analysis
+      target:
+        provider: "agent://claude-sonnet"
+        config:
+          model: claude-sonnet-4
+
+    - selector:
+        capabilityRef:
+          name: code-generation
+      target:
+        provider: "agent://claude-opus"
+        config:
+          model: claude-opus-4
+
+    - selector:
+        capabilityRef:
+          name: test-generation
+      target:
+        provider: "agent://claude-sonnet"
+
+    - selector:
+        capabilityRef:
+          name: test-execution
+      target:
+        provider: "tool://jest-runner"
+        config:
+          coverage: true
+
+    - selector:
+        capabilityRef:
+          name: security-scan
+      target:
+        provider: "tool://semgrep"
+        config:
+          ruleset: "p/security-audit"
+
+    - selector:
+        capabilityRef:
+          name: documentation
+      target:
+        provider: "agent://claude-sonnet"
+
+    # Override: use Opus for backend implementation (more complex)
+    - selector:
+        planRef:
+          name: sso-implementation-v2
+        nodeId: implement-backend
+      target:
+        provider: "agent://claude-opus"
+        config:
+          model: claude-opus-4
+          temperature: 0.2
+---
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: sso-exec-001
+  namespace: team-platform
+  ownerReferences:
+    - apiVersion: planspec.io/v1alpha1
+      kind: Goal
+      name: enable-google-sso
+      uid: placeholder-uid
+spec:
+  goalRef:
+    name: enable-google-sso
+  planRef:
+    name: sso-implementation-v2
+  bindingRef:
+    name: platform-bindings
+  parameters:
+    dryRun: false
+    priority: high
+    notifyOnGate: true

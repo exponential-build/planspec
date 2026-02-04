@@ -1,0 +1,65 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: cli-improvements-v2
+  namespace: planspec
+  labels:
+    planspec.io/goal: cli-improvements
+    planspec.io/series: cli-improvements
+    planspec.io/version: "2"
+spec:
+  goalRef:
+    name: cli-improvements
+  series: cli-improvements
+  version: "2"
+  supersedes:
+    - name: cli-improvements-v1
+  description: "Add kubectl-style -A shorthand for --all-namespaces"
+  context:
+    - format: markdown
+      content: |
+        Follow-up improvement to match kubectl conventions.
+        Users familiar with kubectl expect `-A` to work.
+  graph:
+    nodes:
+      - id: add-short-flag
+        kind: Task
+        description: "Add short = 'A' to --all-namespaces argument in CLI"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/main.rs`, update the Get command's all_namespaces arg:
+              ```rust
+              #[arg(short = 'A', long)]
+              all_namespaces: bool,
+              ```
+        outputs:
+          - cli/src/main.rs
+
+      - id: test
+        kind: Task
+        description: "Verify -A works as expected"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              ```bash
+              planspec get plans -A
+              planspec get goals -A
+              ```
+
+      - id: review
+        kind: Gate
+        description: "Human review"
+        when: "manualApproval"
+        gateRef:
+          name: review-gate
+
+    edges:
+      - from: add-short-flag
+        to: test
+      - from: test
+        to: review

@@ -1,0 +1,30 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-core-crate
+  namespace: planspec
+spec:
+  description: "Create a shared planspec-core crate with types consumable by CLI, server, and external implementations"
+  constraints:
+    language: rust
+    design: library-first
+  acceptanceCriteria:
+    - description: "planspec-core crate exists with all resource types"
+    - description: "Types derive Serialize, Deserialize, Clone, Debug, PartialEq"
+    - description: "CLI and server both depend on planspec-core"
+    - description: "JSON schema validation lives in planspec-core"
+    - description: "Types are documented with rustdoc"
+    - description: "External crates can depend on planspec-core for type definitions"
+  context:
+    - name: motivation
+      format: markdown
+      content: |
+        Currently types are defined separately in CLI and server with embedded
+        JSON schemas duplicated in both. A shared core crate provides:
+        - Single source of truth for resource types
+        - Consistent serialization/deserialization
+        - Reusable validation logic
+        - Foundation for other Rust-based implementations
+        - Better developer experience for ecosystem builders
+  timeout: "72h"
+  priority: 90

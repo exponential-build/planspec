@@ -1,0 +1,162 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: cli-improvements-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: cli-improvements
+    planspec.io/series: cli-improvements
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: cli-improvements
+  series: cli-improvements
+  version: "1"
+  description: "Implementation plan for CLI and server improvements"
+  context:
+    - format: markdown
+      content: |
+        The improvements span both server (status population) and CLI
+        (display and filtering). Server changes should come first since
+        CLI depends on having data to display.
+  graph:
+    nodes:
+      - id: server-status-population
+        kind: Task
+        description: "Populate Plan.status.phase and nodeCount on create/replace in server"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `server/src/routes/resources.rs` and `apply.rs`:
+              - After successful validation, set `status.phase = "Ready"`
+              - Count nodes and set `status.nodeCount`
+              - Do this before storing the resource
+
+              ```rust
+              // After validation passes
+              if kind == "Plan" {
+                  if let Some(spec) = body.get("spec") {
+                      if let Some(graph) = spec.get("graph") {
+                          let node_count = graph.get("nodes")
+                              .and_then(|n| n.as_array())
+                              .map(|a| a.len())
+                              .unwrap_or(0);
+                          body["status"] = json!({
+                              "phase": "Ready",
+                              "nodeCount": node_count
+                          });
+                      }
+                  }
+              }
+              ```
+          - format: uri-list
+            uris:
+              - server/src/routes/resources.rs
+              - server/src/routes/apply.rs
+        outputs:
+          - server/src/routes/resources.rs
+          - server/src/routes/apply.rs
+
+      - id: cli-describe-supersedes
+        kind: Task
+        description: "Show supersedes chain in describe plan output"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/describe.rs`, update `describe_plan`:
+              - Show "Supersedes: plan-v1" if present
+              - Format series/version more prominently
+
+              Example output:
+              ```
+              Series: apiserver-lite
+              Version: 2
+              Supersedes: apiserver-lite-v1
+              ```
+          - format: uri-list
+            uris:
+              - cli/src/commands/describe.rs
+        outputs:
+          - cli/src/commands/describe.rs
+
+      - id: cli-get-series-filter
+        kind: Task
+        description: "Add --series flag to filter plans by series"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/get.rs`:
+              - Add `--series` CLI argument
+              - Filter results client-side (server doesn't have label selector yet)
+              - Usage: `planspec get plans --series apiserver-lite`
+          - format: uri-list
+            uris:
+              - cli/src/commands/get.rs
+              - cli/src/main.rs
+        outputs:
+          - cli/src/commands/get.rs
+          - cli/src/main.rs
+
+      - id: cli-sort-plans
+        kind: Task
+        description: "Sort plans by (series, version desc) in list output"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              In `cli/src/commands/get.rs`:
+              - After fetching plans, sort by series (asc), then version (desc)
+              - Use natural sort for version strings if possible
+              - This puts latest versions at top within each series
+        outputs:
+          - cli/src/commands/get.rs
+
+      - id: rebuild-test
+        kind: Task
+        description: "Rebuild CLI and server, test with existing plans"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              Test commands:
+              ```bash
+              cargo build --release  # both cli and server
+              planspec get plans -n planspec
+              planspec get plans -n planspec --series apiserver-lite
+              planspec describe plan apiserver-lite-v2 -n planspec
+              ```
+
+              Expected:
+              - PHASE shows "Ready"
+              - NODES shows node count
+              - --series filter works
+              - describe shows supersedes
+
+      - id: review
+        kind: Gate
+        description: "Human review of improvements"
+        when: "manualApproval"
+        gateRef:
+          name: review-gate
+
+    edges:
+      - from: server-status-population
+        to: cli-describe-supersedes
+      - from: server-status-population
+        to: cli-get-series-filter
+      - from: cli-describe-supersedes
+        to: cli-sort-plans
+      - from: cli-get-series-filter
+        to: cli-sort-plans
+      - from: cli-sort-plans
+        to: rebuild-test
+      - from: rebuild-test
+        to: review

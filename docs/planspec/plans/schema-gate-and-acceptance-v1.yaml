@@ -1,0 +1,250 @@
+# Plan: Gate Resource and Task Acceptance Criteria Schema Implementation
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: schema-gate-and-acceptance-v1
+  namespace: planspec
+  labels:
+    component: schema
+    planspec.io/goal: schema-gate-and-acceptance
+spec:
+  goalRef:
+    name: schema-gate-and-acceptance
+    namespace: planspec
+  description: "Implementation plan for Gate resource and Task acceptance criteria schemas"
+
+  graph:
+    nodes:
+      # Phase 1: JSON Schemas
+      - id: create-gate-schema
+        kind: Task
+        name: Create Gate resource JSON Schema
+        description: |
+          Create schemas/v1alpha1/gate.json defining the Gate resource structure:
+          - spec: gateType (enum: approval, review, sign-off), description, reviewers array,
+            timeout (duration string), requiredApprovers (integer), metadata (arbitrary context)
+          - status: phase (enum: Pending, Waiting, Approved, Rejected, ChangesRequested, Expired),
+            conditions array, reviewHistory array (reviewer, action, timestamp, comment),
+            resolution (approvedBy, rejectedBy, timestamp)
+          Reference common/objectmeta.json and common/condition.json.
+        capabilities:
+          - schema-design
+        estimatedEffort: medium
+
+      - id: create-acceptance-schema
+        kind: Task
+        name: Create acceptance criteria JSON Schema
+        description: |
+          Create schemas/common/acceptance-criteria.json defining the acceptance criteria structure:
+          - Base schema with type discriminator, name, description, required (boolean)
+          - artifact_exists: path, contentMatch (optional regex)
+          - test_passes: command, args, expectedExitCode, timeout
+          - endpoint_responds: url, method, expectedStatus, bodyMatch (optional)
+          - command_succeeds: command, args, expectedExitCode, timeout, outputMatch (optional)
+          - custom: webhookUrl, payload template, expectedResponse
+          Use JSON Schema oneOf for type discrimination.
+        capabilities:
+          - schema-design
+        estimatedEffort: medium
+
+      - id: update-graph-schema
+        kind: Task
+        name: Update graph schema for gate nodes and acceptance criteria
+        description: |
+          Modify schemas/common/graph.json to:
+          - Add gateRef (name, namespace) to gate node type definition
+          - Add acceptanceCriteria array to Task node type, referencing acceptance-criteria.json
+          - Ensure node kind enum includes 'gate' alongside 'task', 'milestone'
+          - Update validation rules for gate nodes (must have gateRef)
+        capabilities:
+          - schema-design
+        estimatedEffort: small
+        dependsOn:
+          - create-gate-schema
+          - create-acceptance-schema
+
+      # Phase 2: Core Rust Types
+      - id: create-gate-types
+        kind: Task
+        name: Create Gate Rust types
+        description: |
+          Add Gate resource types to the core library:
+          - GateSpec struct with gate_type, description, reviewers, timeout, required_approvers
+          - GateStatus struct with phase, conditions, review_history, resolution
+          - GatePhase enum: Pending, Waiting, Approved, Rejected, ChangesRequested, Expired
+          - ReviewAction struct: reviewer, action (enum), timestamp, comment
+          - Implement Default, Serialize, Deserialize, JsonSchema derives
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-graph-schema
+
+      - id: create-acceptance-types
+        kind: Task
+        name: Create acceptance criteria Rust types
+        description: |
+          Add acceptance criteria types to the core library:
+          - AcceptanceCriteria enum with variants for each type
+          - ArtifactExists struct: path, content_match
+          - TestPasses struct: command, args, expected_exit_code, timeout
+          - EndpointResponds struct: url, method, expected_status, body_match
+          - CommandSucceeds struct: command, args, expected_exit_code, timeout, output_match
+          - CustomCriteria struct: webhook_url, payload, expected_response
+          Use serde tag = "type" for JSON serialization discrimination.
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-graph-schema
+
+      - id: update-node-struct
+        kind: Task
+        name: Update Node struct with acceptance criteria
+        description: |
+          Modify the existing Node struct in the graph module:
+          - Add optional acceptance_criteria: Vec<AcceptanceCriteria> field to Task nodes
+          - Add optional gate_ref: ObjectReference field to Gate nodes
+          - Update serde attributes for proper serialization
+          - Ensure backwards compatibility with existing Plan definitions
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+        dependsOn:
+          - create-gate-types
+          - create-acceptance-types
+
+      # Phase 3: Resource Enum & Validation
+      - id: update-resource-enum
+        kind: Task
+        name: Add Gate to Resource enum
+        description: |
+          Update the Resource enum to include Gate as a variant:
+          - Add Gate(Gate) variant to Resource enum
+          - Update kind() method to return "Gate"
+          - Update From/Into implementations
+          - Add Gate to the list of supported resource types in CLI
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+        dependsOn:
+          - update-node-struct
+
+      - id: update-validator
+        kind: Task
+        name: Update schema validator for Gate and acceptance criteria
+        description: |
+          Update cli/src/schema/ validation logic:
+          - Embed gate.json schema in the binary
+          - Add validation for Gate resources in validate command
+          - Add validation for acceptance criteria within Plan validation
+          - Ensure gate nodes reference valid gateRef structure
+          - Add helpful error messages for acceptance criteria validation failures
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-resource-enum
+
+      # Phase 4: Server & CLI
+      - id: update-server-routes
+        kind: Task
+        name: Add Gate CRUD routes to server
+        description: |
+          Add REST endpoints for Gate resource management:
+          - POST /apis/planspec.io/v1alpha1/namespaces/{ns}/gates
+          - GET /apis/planspec.io/v1alpha1/namespaces/{ns}/gates
+          - GET /apis/planspec.io/v1alpha1/namespaces/{ns}/gates/{name}
+          - PUT /apis/planspec.io/v1alpha1/namespaces/{ns}/gates/{name}
+          - DELETE /apis/planspec.io/v1alpha1/namespaces/{ns}/gates/{name}
+          - PATCH /apis/planspec.io/v1alpha1/namespaces/{ns}/gates/{name}/status
+          Follow existing resource route patterns. Add status subresource for phase updates.
+        capabilities:
+          - code-generation
+        estimatedEffort: medium
+        dependsOn:
+          - update-validator
+
+      - id: update-cli-get
+        kind: Task
+        name: Update CLI get/describe for Gates
+        description: |
+          Update CLI commands to support Gate resources:
+          - Add "gate" and "gates" to resource type aliases
+          - Update table formatter with columns: NAME, TYPE, PHASE, REVIEWERS, AGE
+          - Add describe output showing full gate spec and status
+          - Support 'planspec get all' including gates
+        capabilities:
+          - code-generation
+        estimatedEffort: small
+        dependsOn:
+          - update-server-routes
+
+      # Phase 5: Examples & Tests
+      - id: create-example
+        kind: Task
+        name: Create example Gate and Plan with acceptance criteria
+        description: |
+          Create example files demonstrating the new features:
+          - docs/examples/gate-approval.yaml: Simple approval gate
+          - docs/examples/plan-with-gates.yaml: Plan using gate nodes
+          - docs/examples/task-with-acceptance.yaml: Task with acceptance criteria
+          - Include comments explaining each feature
+        capabilities:
+          - documentation
+        estimatedEffort: small
+        dependsOn:
+          - update-cli-get
+
+      - id: add-tests
+        kind: Task
+        name: Add tests for Gate and acceptance criteria
+        description: |
+          Add comprehensive tests:
+          - Unit tests for Gate type serialization/deserialization
+          - Unit tests for acceptance criteria type handling
+          - Integration tests for Gate CRUD operations
+          - Schema validation tests for Gate resources
+          - Schema validation tests for Plans with acceptance criteria
+          - Test gate lifecycle state transitions
+        capabilities:
+          - test-generation
+        estimatedEffort: large
+        dependsOn:
+          - create-example
+
+    edges:
+      # Phase 1: Schemas converge
+      - from: create-gate-schema
+        to: update-graph-schema
+      - from: create-acceptance-schema
+        to: update-graph-schema
+
+      # Phase 2: Core types from graph schema
+      - from: update-graph-schema
+        to: create-gate-types
+      - from: update-graph-schema
+        to: create-acceptance-types
+      - from: create-gate-types
+        to: update-node-struct
+      - from: create-acceptance-types
+        to: update-node-struct
+
+      # Phase 3: Linear chain
+      - from: update-node-struct
+        to: update-resource-enum
+      - from: update-resource-enum
+        to: update-validator
+
+      # Phase 4: Server then CLI
+      - from: update-validator
+        to: update-server-routes
+      - from: update-server-routes
+        to: update-cli-get
+
+      # Phase 5: Examples then tests
+      - from: update-cli-get
+        to: create-example
+      - from: create-example
+        to: add-tests

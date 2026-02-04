@@ -1,0 +1,24 @@
+[package]
+name = "planspec-core"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Core types and validation for PlanSpec declarative work orchestration"
+readme = "../README.md"
+keywords = ["planspec", "orchestration", "workflow", "dag"]
+categories = ["data-structures", "config"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+thiserror.workspace = true
+jsonschema = "0.18"
+
+[dev-dependencies]
+serde_yaml.workspace = true

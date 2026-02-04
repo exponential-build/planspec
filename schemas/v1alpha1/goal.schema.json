@@ -1,0 +1,203 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/goal.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Goal",
+  "description": "A high-level objective with acceptance criteria",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Goal"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/goalSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/goalStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "goalSpec": {
+      "type": "object",
+      "description": "Specification of the goal",
+      "required": ["description"],
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the goal",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "constraints": {
+          "type": "object",
+          "description": "Constraints that must be satisfied",
+          "additionalProperties": true
+        },
+        "acceptanceCriteria": {
+          "type": "array",
+          "description": "Criteria that define when the goal is achieved. When 'id' fields are present, they must be unique within this array (enforced by controllers).",
+          "items": {
+            "$ref": "#/$defs/acceptanceCriterion"
+          },
+          "maxItems": 100
+        },
+        "planSelector": {
+          "$ref": "#/$defs/labelSelector",
+          "description": "Selector to match plans by labels"
+        },
+        "timeout": {
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/duration" }],
+          "description": "Maximum time allowed for goal completion"
+        },
+        "priority": {
+          "type": "integer",
+          "description": "Priority for scheduling (higher = more urgent)",
+          "minimum": 0,
+          "maximum": 1000,
+          "default": 0
+        },
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments (notes, code pointers, structured data)",
+          "items": {
+            "$ref": "../common/context.schema.json"
+          },
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "acceptanceCriterion": {
+      "type": "object",
+      "description": "A criterion that defines success",
+      "required": ["description"],
+      "properties": {
+        "id": {
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/dnsLabel" }],
+          "description": "Stable identifier for referencing this criterion (e.g., in gates, conditions, test results)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the criterion",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      },
+      "additionalProperties": false
+    },
+    "labelSelector": {
+      "type": "object",
+      "description": "A label selector for matching resources",
+      "properties": {
+        "matchLabels": {
+          "type": "object",
+          "description": "Equality-based label matching",
+          "propertyNames": {
+            "$ref": "../common/types.schema.json#/$defs/labelKey"
+          },
+          "additionalProperties": {
+            "$ref": "../common/types.schema.json#/$defs/labelValue"
+          },
+          "maxProperties": 64
+        },
+        "matchExpressions": {
+          "type": "array",
+          "description": "Set-based label matching",
+          "items": {
+            "$ref": "#/$defs/labelSelectorRequirement"
+          },
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "labelSelectorRequirement": {
+      "type": "object",
+      "description": "A set-based label selector requirement",
+      "required": ["key", "operator"],
+      "properties": {
+        "key": {
+          "allOf": [{ "$ref": "../common/types.schema.json#/$defs/labelKey" }],
+          "description": "Label key"
+        },
+        "operator": {
+          "type": "string",
+          "description": "Operator for matching",
+          "enum": ["In", "NotIn", "Exists", "DoesNotExist"]
+        },
+        "values": {
+          "type": "array",
+          "description": "Values to match (required for In/NotIn, forbidden for Exists/DoesNotExist)",
+          "items": {
+            "$ref": "../common/types.schema.json#/$defs/labelValue"
+          },
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": { "operator": { "enum": ["In", "NotIn"] } },
+            "required": ["operator"]
+          },
+          "then": {
+            "required": ["values"],
+            "properties": {
+              "values": { "type": "array", "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "operator": { "enum": ["Exists", "DoesNotExist"] } },
+            "required": ["operator"]
+          },
+          "then": {
+            "not": { "required": ["values"] }
+          }
+        }
+      ]
+    },
+    "goalStatus": {
+      "type": "object",
+      "description": "Status of the goal",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current lifecycle phase",
+          "enum": ["Pending", "Planning", "Ready", "Executing", "Succeeded", "Failed", "Cancelled"]
+        },
+        "activePlanRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reference to the selected plan. Set when phase transitions to Ready; persists through Executing until a terminal state (Succeeded, Failed, Cancelled)"
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          },
+          "maxItems": 32
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

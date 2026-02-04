@@ -1,0 +1,71 @@
+{
+  "$id": "https://planspec.io/schemas/common/status.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Status Components",
+  "description": "Common status structures for PlanSpec resources",
+  "$defs": {
+    "condition": {
+      "type": "object",
+      "description": "A condition represents a specific aspect of a resource's state",
+      "required": ["type", "status", "reason", "lastTransitionTime"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of condition (e.g., Ready, Progressing, Degraded)",
+          "minLength": 1,
+          "maxLength": 316
+        },
+        "status": {
+          "type": "string",
+          "description": "Status of the condition",
+          "enum": ["True", "False", "Unknown"]
+        },
+        "reason": {
+          "type": "string",
+          "description": "Machine-readable reason for the condition's last transition",
+          "pattern": "^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable message explaining the condition",
+          "maxLength": 32768
+        },
+        "lastTransitionTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp of when the condition last transitioned",
+          "format": "date-time"
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed when this condition was set",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": false
+    },
+    "conditionArray": {
+      "type": "array",
+      "description": "Array of conditions",
+      "items": {
+        "$ref": "#/$defs/condition"
+      },
+      "maxItems": 32
+    },
+    "baseStatus": {
+      "type": "object",
+      "description": "Base status fields common to all resources",
+      "properties": {
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation most recently observed by the controller",
+          "minimum": 0
+        },
+        "conditions": {
+          "$ref": "#/$defs/conditionArray"
+        }
+      }
+    }
+  }
+}

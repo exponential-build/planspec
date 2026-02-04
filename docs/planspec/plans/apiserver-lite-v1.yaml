@@ -1,0 +1,159 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: apiserver-lite-v1
+  namespace: planspec
+  labels:
+    planspec.io/goal: implement-apiserver-lite
+    planspec.io/series: apiserver-lite
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: implement-apiserver-lite
+  series: apiserver-lite
+  version: "1"
+  description: "Implementation plan for minimal PlanSpec API server"
+  graph:
+    nodes:
+      - id: project-setup
+        kind: Task
+        description: "Create server/ directory with Cargo.toml, dependencies (axum, sqlx, tokio, serde)"
+        capabilityRef:
+          name: code-generation
+        outputs:
+          - server/Cargo.toml
+          - server/src/main.rs
+
+      - id: data-model
+        kind: Task
+        description: "Define storage types: StoredObject with key, object_json, uid, resourceVersion, generation, timestamps"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: project-setup
+        outputs:
+          - server/src/storage/mod.rs
+          - server/src/storage/types.rs
+
+      - id: storage-layer
+        kind: Task
+        description: "Implement SQLite storage: init schema, CRUD operations, resourceVersion checks, generation increment logic"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: data-model
+        outputs:
+          - server/src/storage/sqlite.rs
+
+      - id: validation
+        kind: Task
+        description: "Integrate JSON schema validation and DAG cycle detection for Plans"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: project-setup
+        outputs:
+          - server/src/validate.rs
+
+      - id: routes-crud
+        kind: Task
+        description: "Implement REST routes: list, get, create, replace, delete for all resource types"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on:
+            - storage-layer
+            - validation
+        outputs:
+          - server/src/routes/mod.rs
+          - server/src/routes/resources.rs
+
+      - id: routes-apply
+        kind: Task
+        description: "Implement POST /namespaces/{ns}/apply for atomic multi-resource apply"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: routes-crud
+        outputs:
+          - server/src/routes/apply.rs
+
+      - id: routes-validate
+        kind: Task
+        description: "Implement POST /validate for dry-run validation without persistence"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: routes-crud
+        outputs:
+          - server/src/routes/validate.rs
+
+      - id: watch
+        kind: Task
+        description: "Implement watch endpoint with broadcast channel and NDJSON streaming"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on: storage-layer
+        outputs:
+          - server/src/watch.rs
+
+      - id: wire-up
+        kind: Task
+        description: "Wire all routes into Axum router, add server startup with configurable port"
+        capabilityRef:
+          name: code-generation
+        inputs:
+          depends_on:
+            - routes-crud
+            - routes-apply
+            - routes-validate
+            - watch
+        outputs:
+          - server/src/main.rs
+
+      - id: integration-test
+        kind: Task
+        description: "Test end-to-end: start server, use CLI to apply/get/watch resources"
+        capabilityRef:
+          name: code-execution
+        inputs:
+          depends_on: wire-up
+
+      - id: review
+        kind: Gate
+        description: "Human review: does it meet acceptance criteria?"
+        gateRef:
+          name: review-gate
+        inputs:
+          depends_on: integration-test
+
+    edges:
+      - from: project-setup
+        to: data-model
+      - from: project-setup
+        to: validation
+      - from: data-model
+        to: storage-layer
+      - from: storage-layer
+        to: routes-crud
+      - from: validation
+        to: routes-crud
+      - from: routes-crud
+        to: routes-apply
+      - from: routes-crud
+        to: routes-validate
+      - from: storage-layer
+        to: watch
+      - from: routes-crud
+        to: wire-up
+      - from: routes-apply
+        to: wire-up
+      - from: routes-validate
+        to: wire-up
+      - from: watch
+        to: wire-up
+      - from: wire-up
+        to: integration-test
+      - from: integration-test
+        to: review

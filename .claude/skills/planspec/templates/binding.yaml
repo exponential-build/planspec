@@ -1,0 +1,42 @@
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: ${BINDING_NAME}
+  namespace: ${NAMESPACE:-default}
+spec:
+  strategy: FirstMatch  # FirstMatch | MostSpecific | ErrorOnConflict
+  rules:
+    # Match all uses of a capability
+    - selector:
+        capabilityRef:
+          name: ${CAPABILITY_NAME}
+      target:
+        provider: agent://claude-code
+        # Optional: provider config
+        # config:
+        #   model: claude-3-opus
+
+    # Match within a specific plan
+    # - selector:
+    #     planRef:
+    #       name: ${PLAN_NAME}
+    #   target:
+    #     provider: agent://claude-code
+
+    # Match a specific node in a plan (most specific)
+    # - selector:
+    #     planRef:
+    #       name: ${PLAN_NAME}
+    #     nodeId: ${NODE_ID}
+    #   target:
+    #     provider: mcp://custom-tool
+    #     config:
+    #       endpoint: http://localhost:3000
+
+    # Match plans by labels
+    # - selector:
+    #     matchLabels:
+    #       team: platform
+    #       env: production
+    #   target:
+    #     provider: agent://specialized-agent

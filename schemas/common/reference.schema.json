@@ -1,0 +1,35 @@
+{
+  "$id": "https://planspec.io/schemas/common/reference.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ObjectReference",
+  "description": "Reference to another PlanSpec resource",
+  "type": "object",
+  "required": ["name"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version of the referenced resource (e.g., 'planspec.io/v1alpha1'). Optional; defaults to current API version.",
+      "pattern": "^[a-z0-9]([-a-z0-9./]*[a-z0-9])?$",
+      "maxLength": 253
+    },
+    "kind": {
+      "type": "string",
+      "description": "Kind of the referenced resource (e.g., 'Capability', 'Gate'). Optional; inferred from context when unambiguous.",
+      "pattern": "^[A-Z][a-zA-Z0-9]*$",
+      "maxLength": 63
+    },
+    "name": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Name of the referenced resource (DNS label format)"
+    },
+    "namespace": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Namespace of the referenced resource. Defaults to the referring object's namespace."
+    },
+    "uid": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/uid" }],
+      "description": "UID of the referenced resource for strong references. When provided, validates that the resolved resource matches this UID."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,224 @@
+{
+  "$id": "https://planspec.io/schemas/common/acceptance-criteria.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AcceptanceCriteria",
+  "description": "Machine-verifiable acceptance criteria for Task nodes. Discriminated by 'type' field.",
+  "oneOf": [
+    {
+      "type": "object",
+      "description": "Verify a file or directory exists at the specified path",
+      "properties": {
+        "type": { "const": "artifact_exists" },
+        "name": { "$ref": "#/$defs/name" },
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/description" },
+        "required": { "$ref": "#/$defs/required" },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "path": {
+          "type": "string",
+          "description": "File or directory path to check",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "contentMatch": {
+          "type": "string",
+          "description": "Regex pattern that must match file content. If set, path MUST be a file (not directory); controllers MUST fail if path is missing or is a directory.",
+          "maxLength": 1024
+        }
+      },
+      "required": ["type", "name", "path"],
+      "unevaluatedProperties": false
+    },
+    {
+      "type": "object",
+      "description": "Invoke a test runner and verify it passes (exit code 0 by default). Intended for structured test frameworks (pytest, go test, npm test, cargo test). Future versions may support structured test report parsing.",
+      "properties": {
+        "type": { "const": "test_passes" },
+        "name": { "$ref": "#/$defs/name" },
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/description" },
+        "required": { "$ref": "#/$defs/required" },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "command": {
+          "type": "string",
+          "description": "Test runner executable name (e.g., 'pytest', 'go', 'npm', 'cargo'). Controllers MUST NOT invoke via shell unless provider config explicitly opts in.",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments (argv) to pass to the test runner",
+          "items": { "type": "string", "maxLength": 1024 },
+          "maxItems": 256
+        },
+        "expectedExitCode": {
+          "type": "integer",
+          "description": "Expected exit code (default: 0)",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 0
+        }
+      },
+      "required": ["type", "name", "command"],
+      "unevaluatedProperties": false
+    },
+    {
+      "type": "object",
+      "description": "Verify an HTTP endpoint responds with expected status/body",
+      "properties": {
+        "type": { "const": "endpoint_responds" },
+        "name": { "$ref": "#/$defs/name" },
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/description" },
+        "required": { "$ref": "#/$defs/required" },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "url": {
+          "type": "string",
+          "description": "URL to check",
+          "format": "uri",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method",
+          "enum": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"],
+          "default": "GET"
+        },
+        "expectedStatus": {
+          "type": "integer",
+          "description": "Expected HTTP status code",
+          "minimum": 100,
+          "maximum": 599,
+          "default": 200
+        },
+        "bodyMatch": {
+          "type": "string",
+          "description": "Regex pattern that must match response body",
+          "maxLength": 1024
+        }
+      },
+      "required": ["type", "name", "url"],
+      "unevaluatedProperties": false
+    },
+    {
+      "type": "object",
+      "description": "Run a general command and verify exit code and optionally stdout content. For arbitrary shell commands, scripts, or tools that are not test runners.",
+      "properties": {
+        "type": { "const": "command_succeeds" },
+        "name": { "$ref": "#/$defs/name" },
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/description" },
+        "required": { "$ref": "#/$defs/required" },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "command": {
+          "type": "string",
+          "description": "Executable name to run. Controllers MUST NOT invoke via shell unless provider config explicitly opts in.",
+          "minLength": 1,
+          "maxLength": 1024
+        },
+        "args": {
+          "type": "array",
+          "description": "Arguments (argv) to pass to the command",
+          "items": { "type": "string", "maxLength": 1024 },
+          "maxItems": 256
+        },
+        "expectedExitCode": {
+          "type": "integer",
+          "description": "Expected exit code (default: 0)",
+          "minimum": 0,
+          "maximum": 255,
+          "default": 0
+        },
+        "outputMatch": {
+          "type": "string",
+          "description": "Regex pattern that must match stdout",
+          "maxLength": 1024
+        }
+      },
+      "required": ["type", "name", "command"],
+      "unevaluatedProperties": false
+    },
+    {
+      "type": "object",
+      "description": "Call a webhook for custom validation logic. The webhook must return a response matching expectedResponse.",
+      "properties": {
+        "type": { "const": "custom" },
+        "name": { "$ref": "#/$defs/name" },
+        "id": { "$ref": "#/$defs/id" },
+        "description": { "$ref": "#/$defs/description" },
+        "required": { "$ref": "#/$defs/required" },
+        "timeout": { "$ref": "#/$defs/timeout" },
+        "extensions": { "$ref": "#/$defs/extensions" },
+        "webhookUrl": {
+          "type": "string",
+          "description": "URL to call for validation",
+          "format": "uri",
+          "minLength": 1,
+          "maxLength": 2048
+        },
+        "payload": {
+          "type": "object",
+          "description": "JSON payload template to send",
+          "additionalProperties": true
+        },
+        "expectedResponse": {
+          "type": "object",
+          "description": "Expected response constraints",
+          "properties": {
+            "statusCode": {
+              "type": "integer",
+              "description": "Expected HTTP status code",
+              "minimum": 100,
+              "maximum": 599
+            },
+            "bodyMatch": {
+              "type": "string",
+              "description": "Regex pattern that must match response body",
+              "maxLength": 1024
+            }
+          },
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": ["type", "name", "webhookUrl", "expectedResponse"],
+      "unevaluatedProperties": false
+    }
+  ],
+  "$defs": {
+    "name": {
+      "type": "string",
+      "description": "Human-readable name for this criterion",
+      "minLength": 1,
+      "maxLength": 253
+    },
+    "id": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Stable identifier for referencing this criterion from gates, conditions, or status. If absent, controllers may derive one from array index but should not rely on stability."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what this criterion validates",
+      "maxLength": 1024
+    },
+    "required": {
+      "type": "boolean",
+      "description": "Whether this criterion must pass for task completion (true) or is advisory (false)",
+      "default": true
+    },
+    "timeout": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/duration" }],
+      "description": "Maximum time to wait for criterion evaluation"
+    },
+    "extensions": {
+      "type": "object",
+      "description": "Extension fields for forward compatibility. Use reverse-domain keys (e.g., 'io.example.field') or 'x-' prefix for experimental fields.",
+      "additionalProperties": true
+    }
+  }
+}

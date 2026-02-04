@@ -1,0 +1,30 @@
+# Rust build artifacts
+target/
+cli/target/
+core/target/
+server/target/
+
+# SQLite databases
+*.db
+
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+
+# Test coverage
+*.profraw
+*.profdata
+coverage/

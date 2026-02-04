@@ -1,0 +1,25 @@
+apiVersion: planspec.io/v1alpha1
+kind: Gate
+metadata:
+  name: ${GATE_NAME}
+  namespace: ${NAMESPACE:-default}
+spec:
+  gateType: ${GATE_TYPE:-approval}  # approval | review | sign-off
+  targetRef:
+    kind: ${TARGET_KIND:-Plan}  # Plan | Execution
+    name: ${TARGET_NAME}
+    # Optional: target specific node
+    # nodeId: ${NODE_ID}
+  description: "${DESCRIPTION}"
+  # Optional: authorized reviewers
+  # reviewers:
+  #   - user:alice
+  #   - team:platform
+  #   - email:reviewer@example.com
+  # requiredApprovers: 1
+  # Optional: context for reviewers
+  # context:
+  #   checklist:
+  #     - "Code follows style guide"
+  #     - "Tests pass locally"
+  #     - "Documentation updated"

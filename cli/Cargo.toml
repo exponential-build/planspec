@@ -1,0 +1,75 @@
+[package]
+name = "planspec"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "CLI for PlanSpec - declarative work orchestration"
+readme = "../README.md"
+keywords = ["planspec", "orchestration", "workflow", "kubernetes"]
+categories = ["command-line-utilities", "development-tools"]
+
+[features]
+default = ["server"]
+server = ["dep:planspec-server"]
+
+[dependencies]
+# Core types
+planspec-core = { version = "0.1.0", path = "../core" }
+
+# Server (for embedded serve command)
+planspec-server = { version = "0.1.0", path = "../server", optional = true }
+
+# CLI
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+
+# Logging
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml.workspace = true
+
+# HTTP client (extends workspace with rustls-tls)
+reqwest = { workspace = true, features = ["rustls-tls"], default-features = false }
+
+# Async runtime
+tokio.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+
+# Output formatting
+tabled = "0.15"
+colored = "2"
+
+# Error handling
+thiserror.workspace = true
+anyhow.workspace = true
+
+# Utilities
+dirs = "5"
+url = "2"
+chrono.workspace = true
+uuid.workspace = true
+
+# Temp files for edit command
+tempfile.workspace = true
+
+# Diff for edit command
+similar = "2"
+
+[dev-dependencies]
+tempfile.workspace = true
+assert_cmd = "2"
+predicates = "3"
+reqwest = { workspace = true, features = ["blocking"] }
+
+[[bin]]
+name = "planspec"
+path = "src/main.rs"

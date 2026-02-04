@@ -1,0 +1,121 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: planspec-v0-goal-graph
+  namespace: planspec
+  labels:
+    planspec.io/goal: planspec-v0-ready-for-exponential
+    planspec.io/series: planspec-v0-goal-graph
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: planspec-v0-ready-for-exponential
+  series: planspec-v0-goal-graph
+  version: "1"
+  description: "Meta-plan showing goal dependencies for PlanSpec v0 readiness"
+  context:
+    - format: markdown
+      content: |
+        This plan represents the dependency graph between PlanSpec v0 goals.
+        Each node is an External node pointing to a goal that must be completed.
+
+        The dependency order ensures:
+        1. Schema conventions established first
+        2. Test infrastructure built on conventions
+        3. Plan resolution depends on tests
+        4. Status/observability completes the stack
+  graph:
+    nodes:
+      - id: schema-and-conventions
+        kind: External
+        description: "Establish schema conventions and validation"
+        externalRef:
+          type: resource
+          resourceRef:
+            name: external-dependency
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-schema-and-conventions-v0
+
+              Establishes the foundation:
+              - JSON schemas for all resource types
+              - Naming conventions
+              - Label and annotation conventions
+
+      - id: fixtures-and-tests
+        kind: External
+        description: "Create fixtures and integration test infrastructure"
+        externalRef:
+          type: resource
+          resourceRef:
+            name: external-dependency
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-fixtures-and-integration-tests
+
+              Builds on schema conventions:
+              - fixtures/ directory with versioned bundles
+              - Integration tests for apply/get/watch
+              - CI integration
+
+      - id: goal-to-plan-resolution
+        kind: External
+        description: "Implement goal-to-plan resolution MVP"
+        externalRef:
+          type: resource
+          resourceRef:
+            name: external-dependency
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-goal-to-plan-resolution-mvp
+
+              Core orchestration logic:
+              - Goal.status.activePlanRef
+              - planSelector matching
+              - Plan versioning (series/version/supersedes)
+
+      - id: status-and-observability
+        kind: External
+        description: "Implement status updates and observability"
+        externalRef:
+          type: resource
+          resourceRef:
+            name: external-dependency
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-status-and-observability-v0
+
+              Completes the v0 stack:
+              - Proper status conditions
+              - observedGeneration tracking
+              - Phase transitions via watch
+
+      - id: v0-ready
+        kind: Gate
+        description: "All v0 goals completed - PlanSpec ready for Exponential"
+        when: "allDependenciesComplete"
+        gateRef:
+          name: review-gate
+        context:
+          - format: markdown
+            content: |
+              **Goal:** planspec-v0-ready-for-exponential
+
+              Final verification:
+              - All subgoals completed
+              - PlanSpec used for all development work
+              - Documentation complete
+
+    edges:
+      - from: schema-and-conventions
+        to: fixtures-and-tests
+      - from: fixtures-and-tests
+        to: goal-to-plan-resolution
+      - from: goal-to-plan-resolution
+        to: status-and-observability
+      - from: status-and-observability
+        to: v0-ready

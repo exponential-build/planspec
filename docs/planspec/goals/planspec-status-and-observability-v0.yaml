@@ -1,0 +1,35 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-status-and-observability-v0
+  namespace: planspec
+spec:
+  description: "Implement status updates and observability for PlanSpec resources"
+  acceptanceCriteria:
+    - description: "Resources have proper status conditions"
+    - description: "observedGeneration is tracked"
+    - description: "Phase transitions visible via watch"
+  context:
+    - name: status-design
+      format: markdown
+      content: |
+        Status fields follow Kubernetes conventions:
+
+        ```yaml
+        status:
+          phase: Ready | InProgress | Failed | Completed
+          conditions:
+            - type: Valid
+              status: "True"
+              reason: SchemaValid
+              lastTransitionTime: "2024-01-15T10:00:00Z"
+              observedGeneration: 1
+          observedGeneration: 1
+        ```
+
+        Key behaviors:
+        - `observedGeneration` tracks which `metadata.generation` was processed
+        - Conditions use True/False/Unknown status values
+        - Phase provides high-level summary
+        - Watch streams status changes in real-time
+  priority: 825

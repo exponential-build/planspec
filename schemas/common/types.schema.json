@@ -1,0 +1,45 @@
+{
+  "$id": "https://planspec.io/schemas/common/types.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Common Types",
+  "description": "Shared type definitions for PlanSpec schemas",
+  "$defs": {
+    "duration": {
+      "type": "string",
+      "description": "Duration in Go format (e.g., '30s', '5m', '1h30m'). Valid units: ns, us/µs, ms, s, m, h. No day unit.",
+      "pattern": "^([0-9]+(\\.[0-9]+)?(ns|us|µs|ms|s|m|h))+$"
+    },
+    "labelKey": {
+      "type": "string",
+      "description": "Kubernetes-style label key. Optional prefix (DNS subdomain) followed by '/', then name segment.",
+      "pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?[a-zA-Z0-9]([-a-zA-Z0-9_.]*[a-zA-Z0-9])?$",
+      "maxLength": 253
+    },
+    "labelValue": {
+      "type": "string",
+      "description": "Kubernetes-style label value. Alphanumeric with dashes, underscores, dots. Empty string allowed.",
+      "pattern": "^([A-Za-z0-9]([-A-Za-z0-9_.]*[A-Za-z0-9])?)?$",
+      "maxLength": 63
+    },
+    "nodeId": {
+      "type": "string",
+      "description": "Node identifier within a Plan graph. DNS label format: lowercase alphanumeric with hyphens.",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 63
+    },
+    "uid": {
+      "type": "string",
+      "description": "Opaque, server-assigned unique identifier. Survives renames and is stable for the lifetime of the resource. Not necessarily a UUID.",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "dnsLabel": {
+      "type": "string",
+      "description": "DNS label format: lowercase alphanumeric with hyphens, max 63 chars. Used for names, namespaces, and other identifiers.",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "minLength": 1,
+      "maxLength": 63
+    }
+  }
+}

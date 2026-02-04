@@ -1,0 +1,61 @@
+# Goal: CLI Batch Operations and Edit Command
+# Features:
+#   1. Directory-based batch operations: apply/validate/delete -d dir/
+#   2. Interactive edit command: planspec edit <resource> <name>
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: cli-batch-edit-features
+  namespace: planspec
+  labels:
+    component: cli
+    priority: high
+spec:
+  description: |
+    Add batch directory operations and interactive edit command to the PlanSpec CLI,
+    bringing it closer to kubectl-style ergonomics.
+
+  objectives:
+    - id: batch-operations
+      description: |
+        Support -d/--directory flag for apply, validate, and delete commands to process
+        all YAML/YML files in a directory (non-recursive by default, with -R for recursive).
+      acceptanceCriteria:
+        - planspec apply -d ./manifests/ applies all *.yaml and *.yml files in directory
+        - planspec validate -d ./manifests/ validates all files in directory
+        - planspec delete -d ./manifests/ deletes resources defined in all files
+        - -R/--recursive flag enables recursive directory traversal
+        - Errors are collected and reported at the end (fail-open for batch)
+        - --dry-run works with directory mode for apply
+
+    - id: edit-command
+      description: |
+        Add 'planspec edit' command that fetches a resource, opens it in $EDITOR,
+        and applies changes on save (like kubectl edit).
+      acceptanceCriteria:
+        - planspec edit goal my-goal opens the resource in $EDITOR (default: vi)
+        - Saves are validated before applying to server
+        - If validation fails, user can re-edit or abort
+        - Supports --editor flag to override $EDITOR
+        - Shows diff of changes before applying (or with --diff flag)
+        - Handles concurrent modification (conflict detection via resourceVersion)
+
+  context:
+    - name: design-notes
+      format: markdown
+      content: |
+        ## Design Decisions
+
+        ### Batch Operations
+        - Mirror kubectl behavior: -f for file, new -d for directory
+        - Process files in sorted order for deterministic behavior
+        - Collect all errors and report summary at end
+        - Support glob patterns in future iteration
+
+        ### Edit Command
+        - Use tempfile crate for secure temp file handling
+        - Respect $EDITOR, $VISUAL, fall back to vi
+        - Strip server-managed fields (status, managedFields) before editing
+        - Re-add metadata.resourceVersion for optimistic concurrency
+        - Loop on validation failure to allow re-editing

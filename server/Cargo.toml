@@ -1,0 +1,50 @@
+[package]
+name = "planspec-server"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Minimal PlanSpec API server - reference implementation"
+readme = "../README.md"
+keywords = ["planspec", "server", "api", "workflow"]
+categories = ["web-programming", "development-tools"]
+
+[lib]
+name = "planspec_server"
+path = "src/lib.rs"
+
+[dependencies]
+# Core types
+planspec-core = { version = "0.1.0", path = "../core" }
+
+# Web framework
+axum = { version = "0.7", features = ["macros"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.5", features = ["cors", "trace"] }
+
+# Async runtime
+tokio.workspace = true
+tokio-stream.workspace = true
+futures.workspace = true
+
+# Serialization
+serde.workspace = true
+serde_json.workspace = true
+
+# Database
+sqlx = { version = "0.7", features = ["runtime-tokio", "sqlite"] }
+
+# Utilities
+uuid.workspace = true
+chrono.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+reqwest.workspace = true
+tempfile.workspace = true

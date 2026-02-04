@@ -1,0 +1,59 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/document.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "PlanSpec Document",
+  "description": "A document containing one or more PlanSpec resources. Supports multi-document YAML.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/singleResource"
+    },
+    {
+      "$ref": "#/$defs/resourceList"
+    }
+  ],
+  "$defs": {
+    "singleResource": {
+      "description": "A single PlanSpec resource",
+      "oneOf": [
+        { "$ref": "goal.schema.json" },
+        { "$ref": "plan.schema.json" },
+        { "$ref": "capability.schema.json" },
+        { "$ref": "binding.schema.json" },
+        { "$ref": "execution.schema.json" },
+        { "$ref": "gate.schema.json" }
+      ]
+    },
+    "resourceList": {
+      "type": "object",
+      "description": "A list of PlanSpec resources",
+      "required": ["apiVersion", "kind", "items"],
+      "properties": {
+        "apiVersion": {
+          "type": "string",
+          "const": "planspec.io/v1alpha1"
+        },
+        "kind": {
+          "type": "string",
+          "const": "List"
+        },
+        "metadata": {
+          "type": "object",
+          "properties": {
+            "resourceVersion": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "items": {
+          "type": "array",
+          "description": "List of resources",
+          "items": {
+            "$ref": "#/$defs/singleResource"
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://planspec.io/schemas/common/context.schema.json",
+  "title": "ContextItem",
+  "description": "Contextual attachment for embedding notes, code pointers, or structured data with PlanSpec resources",
+  "type": "object",
+  "required": ["format"],
+  "properties": {
+    "name": {
+      "allOf": [{ "$ref": "types.schema.json#/$defs/dnsLabel" }],
+      "description": "Optional identifier for this context item"
+    },
+    "format": {
+      "type": "string",
+      "enum": ["markdown", "text", "json", "uri-list"],
+      "description": "Format of the content: markdown (rich text), text (plain), json (structured), uri-list (pointers)"
+    },
+    "content": {
+      "description": "The context content. String for markdown/text formats, object/array for json format."
+    },
+    "uris": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "format": "uri-reference"
+      },
+      "minItems": 1,
+      "description": "List of URIs for uri-list format (e.g., repo://, doc://, file://)"
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "format": { "const": "markdown" },
+        "content": { "type": "string" }
+      },
+      "required": ["content"],
+      "not": { "required": ["uris"] }
+    },
+    {
+      "properties": {
+        "format": { "const": "text" },
+        "content": { "type": "string" }
+      },
+      "required": ["content"],
+      "not": { "required": ["uris"] }
+    },
+    {
+      "properties": {
+        "format": { "const": "json" },
+        "content": {}
+      },
+      "required": ["content"],
+      "not": { "required": ["uris"] }
+    },
+    {
+      "properties": {
+        "format": { "const": "uri-list" }
+      },
+      "required": ["uris"],
+      "not": { "required": ["content"] }
+    }
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,71 @@
+# Analysis Capabilities
+#
+# Capabilities for research and security scanning.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: research
+  namespace: planspec
+  labels:
+    category: analysis
+spec:
+  displayName: "Research"
+  description: "Research topics, gather information, and synthesize findings"
+  category: analysis
+  inputs:
+    - name: topic
+      type: string
+      description: "The topic to research"
+      required: true
+    - name: depth
+      type: string
+      description: "Research depth: shallow, moderate, deep"
+      default: "moderate"
+    - name: sources
+      type: array
+      description: "Preferred sources to consult"
+  outputs:
+    - name: findings
+      type: object
+      description: "Structured research findings"
+    - name: sources
+      type: array
+      description: "List of sources consulted"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Capability
+metadata:
+  name: security-scan
+  namespace: planspec
+  labels:
+    category: analysis
+spec:
+  displayName: "Security Scan"
+  description: "Scan code for security vulnerabilities"
+  category: security
+  inputs:
+    - name: scanType
+      type: string
+      description: "Type of scan: sast, dast, dependency"
+      required: true
+    - name: paths
+      type: array
+      description: "Paths to scan"
+    - name: severity
+      type: string
+      description: "Minimum severity to report"
+      default: "medium"
+    - name: focus
+      type: array
+      description: "Specific security concerns to focus on"
+  outputs:
+    - name: vulnerabilities
+      type: array
+      description: "List of vulnerabilities found"
+    - name: riskScore
+      type: number
+      description: "Overall risk score"
+    - name: recommendations
+      type: array
+      description: "Remediation recommendations"

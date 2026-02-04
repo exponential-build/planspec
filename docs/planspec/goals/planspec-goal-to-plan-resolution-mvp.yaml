@@ -1,0 +1,26 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: planspec-goal-to-plan-resolution-mvp
+  namespace: planspec
+spec:
+  description: "Implement minimal goal-to-plan resolution for PlanSpec"
+  acceptanceCriteria:
+    - description: "Goal.status.activePlanRef is set when plan selected"
+    - description: "planSelector matching works"
+    - description: "Plan versioning (series/version/supersedes) respected"
+  context:
+    - name: resolution-logic
+      format: markdown
+      content: |
+        Plan resolution determines which Plan satisfies a Goal:
+
+        1. Find Plans where `spec.goalRef.name` matches the Goal
+        2. Filter by `planSelector` labels if specified on Goal
+        3. Group by `spec.series`
+        4. Within each series, select highest `spec.version`
+        5. Exclude Plans that are superseded by others
+        6. Set `Goal.status.activePlanRef` to selected Plan
+
+        MVP focuses on basic matching; advanced selectors come later.
+  priority: 850

@@ -1,0 +1,284 @@
+{
+  "$id": "https://planspec.io/schemas/v1alpha1/execution.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Execution",
+  "description": "Intent to run a Plan with specific bindings. Spec is immutable after creation; status tracks progress.",
+  "type": "object",
+  "required": ["apiVersion", "kind", "metadata", "spec"],
+  "properties": {
+    "apiVersion": {
+      "type": "string",
+      "description": "API version",
+      "const": "planspec.io/v1alpha1"
+    },
+    "kind": {
+      "type": "string",
+      "description": "Resource kind",
+      "const": "Execution"
+    },
+    "metadata": {
+      "$ref": "../common/metadata.schema.json"
+    },
+    "spec": {
+      "$ref": "#/$defs/executionSpec"
+    },
+    "status": {
+      "$ref": "#/$defs/executionStatus"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "executionSpec": {
+      "type": "object",
+      "description": "Specification of the execution (immutable after creation)",
+      "required": ["planRef"],
+      "properties": {
+        "goalRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reference to the goal this execution serves (optional; Plan may already reference Goal)"
+        },
+        "planRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reference to the plan to execute"
+        },
+        "bindingRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Default binding to use for capability resolution"
+        },
+        "nodeBindings": {
+          "type": "object",
+          "description": "Per-node binding overrides. Key is node ID (must match graph.nodes[].id), value is Binding reference.",
+          "propertyNames": {
+            "$ref": "../common/types.schema.json#/$defs/nodeId"
+          },
+          "additionalProperties": {
+            "$ref": "../common/reference.schema.json"
+          },
+          "default": {},
+          "maxProperties": 1000
+        },
+        "runtimeRef": {
+          "$ref": "../common/reference.schema.json",
+          "description": "Reserved - reference to runtime configuration"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Execution parameters. Use reverse-domain keys (e.g., 'io.planspec.*') or 'x-' prefix for experimental.",
+          "additionalProperties": true
+        },
+        "context": {
+          "type": "array",
+          "description": "Contextual attachments (notes, code pointers, structured data)",
+          "items": {
+            "$ref": "../common/context.schema.json"
+          },
+          "default": [],
+          "maxItems": 64
+        }
+      },
+      "additionalProperties": false
+    },
+    "executionStatus": {
+      "type": "object",
+      "description": "Status of the execution (mutable by controllers)",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current lifecycle phase",
+          "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Cancelled"]
+        },
+        "runId": {
+          "type": "string",
+          "description": "Unique identifier for this run. Set once at creation; defaults to metadata.uid if not specified. One Execution = one run.",
+          "maxLength": 128
+        },
+        "reason": {
+          "type": "string",
+          "description": "Machine-readable reason for current phase (e.g., 'ValidationFailed', 'GateRejected', 'NodeFailed', 'CancelledByUser')",
+          "maxLength": 256
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable message explaining current phase or failure",
+          "maxLength": 4096
+        },
+        "queuedTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when controller acknowledged the execution. Queue latency = queuedTime - metadata.creationTimestamp.",
+          "format": "date-time"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when execution started running (first node began). Startup latency = startTime - queuedTime.",
+          "format": "date-time"
+        },
+        "completionTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when execution completed",
+          "format": "date-time"
+        },
+        "lastPhaseTransitionTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when phase last changed",
+          "format": "date-time"
+        },
+        "specHash": {
+          "type": "string",
+          "description": "Hash of spec at creation time. Controllers can refuse to run if spec changes. Format: algorithm:digest (e.g., 'sha256:abc123...').",
+          "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
+        },
+        "nodeStatuses": {
+          "type": "object",
+          "description": "Status per node ID. Keys must match graph.nodes[].id from the referenced Plan. Controllers may omit nodes not yet materialized or include all nodes with phase 'Pending'.",
+          "propertyNames": {
+            "$ref": "../common/types.schema.json#/$defs/nodeId"
+          },
+          "additionalProperties": {
+            "$ref": "#/$defs/nodeStatus"
+          },
+          "default": {},
+          "maxProperties": 1000
+        },
+        "artifacts": {
+          "type": "array",
+          "description": "Artifacts produced during execution",
+          "items": {
+            "$ref": "#/$defs/artifact"
+          },
+          "default": [],
+          "maxItems": 1000
+        },
+        "conditions": {
+          "type": "array",
+          "description": "Detailed conditions",
+          "items": {
+            "$ref": "../common/status.schema.json#/$defs/condition"
+          },
+          "default": [],
+          "maxItems": 32
+        },
+        "observedGeneration": {
+          "type": "integer",
+          "description": "The generation observed by the controller",
+          "minimum": 0
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Extension fields for forward compatibility (controller, runner info, etc.)",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "nodeStatus": {
+      "type": "object",
+      "description": "Status of a node within an execution",
+      "properties": {
+        "phase": {
+          "type": "string",
+          "description": "Current phase of the node",
+          "enum": ["Pending", "Running", "Blocked", "Succeeded", "Failed", "Skipped", "Cancelled"]
+        },
+        "startTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when node execution started",
+          "format": "date-time"
+        },
+        "completionTime": {
+          "type": "string",
+          "description": "RFC3339 timestamp when node execution completed",
+          "format": "date-time"
+        },
+        "attempt": {
+          "type": "integer",
+          "description": "Current attempt number. 0 = not yet attempted, 1+ = attempt count.",
+          "minimum": 0
+        },
+        "outputs": {
+          "type": "object",
+          "description": "Outputs produced by the node. Use reverse-domain keys (e.g., 'io.planspec.*') or 'x-' prefix for experimental/custom keys.",
+          "additionalProperties": true
+        },
+        "message": {
+          "type": "string",
+          "description": "Human-readable status message",
+          "maxLength": 4096
+        },
+        "extensions": {
+          "type": "object",
+          "description": "Extension fields for forward compatibility (agentId, workerId, logs, timings, etc.)",
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "artifact": {
+      "type": "object",
+      "description": "An artifact produced during execution",
+      "required": ["name", "type"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Artifact name",
+          "minLength": 1,
+          "maxLength": 253
+        },
+        "type": {
+          "type": "string",
+          "description": "Artifact type",
+          "enum": ["file", "directory", "url"]
+        },
+        "path": {
+          "type": "string",
+          "description": "Path to the artifact relative to the execution artifact root (controller-defined). Required for file/directory types.",
+          "maxLength": 4096
+        },
+        "url": {
+          "type": "string",
+          "description": "URL to the artifact (required for url type)",
+          "format": "uri",
+          "maxLength": 4096
+        },
+        "checksum": {
+          "type": "string",
+          "description": "Checksum for verification (format: algorithm:digest, e.g., sha256:abc123)",
+          "pattern": "^[A-Za-z0-9_-]+:[A-Za-z0-9+/=._-]+$"
+        },
+        "size": {
+          "type": "integer",
+          "description": "Size in bytes",
+          "minimum": 0
+        },
+        "mediaType": {
+          "type": "string",
+          "description": "MIME type of the artifact content (e.g., 'application/json')",
+          "maxLength": 256
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Additional metadata",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "type": { "enum": ["file", "directory"] } },
+            "required": ["type"]
+          },
+          "then": { "required": ["path"] }
+        },
+        {
+          "if": {
+            "properties": { "type": { "const": "url" } },
+            "required": ["type"]
+          },
+          "then": { "required": ["url"] }
+        }
+      ],
+      "additionalProperties": false
+    }
+  }
+}

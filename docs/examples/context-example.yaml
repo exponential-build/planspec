@@ -1,0 +1,170 @@
+# Example: Using Context Attachments in PlanSpec
+#
+# Context allows embedding notes, code pointers, and structured data
+# directly within PlanSpec resources. This keeps execution-local context
+# bundled with the plan for portability and reproducibility.
+
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: add-logout-button
+  namespace: demo
+spec:
+  description: "Add a logout button to the user profile page"
+  constraints:
+    framework: react
+    auth: existing-session-store
+  acceptanceCriteria:
+    - description: "Logout button visible on profile page"
+    - description: "Clicking logout clears session and redirects to login"
+    - description: "Existing sessions remain valid until explicit logout"
+  context:
+    - name: design-notes
+      format: markdown
+      content: |
+        ### Implementation Constraints
+        - Use existing session store (don't create new tables)
+        - Clear cookies AND call server-side /api/logout
+        - Redirect to /login after successful logout
+
+        ### UX Requirements
+        - Button should be in the header dropdown
+        - Show confirmation dialog before logout
+    - name: related-docs
+      format: uri-list
+      uris:
+        - doc://prd/authentication.md
+        - doc://design/session-management.md
+  timeout: "72h"
+  priority: 50
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: logout-button-v1
+  namespace: demo
+  labels:
+    planspec.io/goal: add-logout-button
+    planspec.io/series: logout-button
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: add-logout-button
+  series: logout-button
+  version: "1"
+  description: "Implementation plan for logout button feature"
+  context:
+    - name: architecture-notes
+      format: markdown
+      content: |
+        The auth system uses React Context for state management.
+        Logout needs to:
+        1. Call `auth.logout()` from useAuth hook
+        2. Clear local storage tokens
+        3. Invalidate server session via API
+  graph:
+    nodes:
+      - id: add-button
+        kind: Task
+        description: "Add logout button component to UserProfile"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: uri-list
+            uris:
+              - repo://src/components/UserProfile.tsx
+              - repo://src/components/Button.tsx
+          - format: markdown
+            content: |
+              Use the existing `<Button variant="secondary" />` component.
+              Place in the header dropdown menu after "Settings".
+        outputs:
+          - src/components/UserProfile.tsx
+
+      - id: implement-handler
+        kind: Task
+        description: "Implement logout handler with API call"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              ```typescript
+              const handleLogout = async () => {
+                await auth.logout(); // from useAuth hook
+                router.push('/login');
+              };
+              ```
+          - format: uri-list
+            uris:
+              - repo://src/hooks/useAuth.ts
+              - repo://src/services/auth.ts
+        outputs:
+          - src/components/UserProfile.tsx
+
+      - id: add-confirmation
+        kind: Task
+        description: "Add confirmation dialog before logout"
+        capabilityRef:
+          name: code-generation
+        context:
+          - format: markdown
+            content: |
+              Use the existing Modal component.
+              Text: "Are you sure you want to log out?"
+              Buttons: "Cancel" (secondary), "Log out" (danger)
+        outputs:
+          - src/components/LogoutConfirmDialog.tsx
+
+      - id: test
+        kind: Task
+        description: "Write tests for logout flow"
+        capabilityRef:
+          name: code-execution
+        context:
+          - format: markdown
+            content: |
+              Test cases:
+              - Button renders in dropdown
+              - Confirmation dialog shows on click
+              - Cancel dismisses dialog
+              - Confirm calls auth.logout and redirects
+
+      - id: review
+        kind: Gate
+        description: "Code review and QA verification"
+        when: "manualApproval"
+        gateRef:
+          name: review-gate
+
+    edges:
+      - from: add-button
+        to: implement-handler
+      - from: implement-handler
+        to: add-confirmation
+      - from: add-confirmation
+        to: test
+      - from: test
+        to: review
+---
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: logout-exec-001
+  namespace: demo
+spec:
+  goalRef:
+    name: add-logout-button
+  planRef:
+    name: logout-button-v1
+  context:
+    - name: runtime-notes
+      format: markdown
+      content: |
+        Starting implementation. Using existing component patterns.
+    - format: json
+      content:
+        trigger: "manual"
+        priority: "normal"
+        estimatedNodes: 5

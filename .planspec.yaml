@@ -1,0 +1,17 @@
+# PlanSpec Configuration
+# This file configures the /planspec skill for this project.
+
+server:
+  url: http://localhost:8080
+
+paths:
+  goals: docs/planspec/goals
+  plans: docs/planspec/plans
+  capabilities: docs/planspec/capabilities
+  bindings: docs/planspec/bindings
+
+namespace: planspec
+
+cli:
+  # Use the locally built CLI
+  path: cli/target/release/planspec

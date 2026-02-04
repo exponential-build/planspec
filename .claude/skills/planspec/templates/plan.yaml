@@ -1,0 +1,88 @@
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: ${PLAN_NAME}
+  namespace: ${NAMESPACE:-default}
+  labels:
+    planspec.io/goal: ${GOAL_NAME}
+    planspec.io/series: ${SERIES_NAME}
+    planspec.io/version: "${VERSION}"
+spec:
+  goalRef:
+    name: ${GOAL_NAME}
+  series: ${SERIES_NAME}
+  version: "${VERSION}"
+  # Optional: supersedes previous version
+  # supersedes:
+  #   - name: ${SERIES_NAME}-v${PREV_VERSION}
+  description: "${DESCRIPTION}"
+  # Optional: plan-level context
+  # context:
+  #   - format: markdown
+  #     content: |
+  #       Implementation notes...
+  graph:
+    nodes:
+      # Task node - work to be done
+      - id: ${NODE_1_ID}
+        kind: Task
+        description: "${NODE_1_DESCRIPTION}"
+        capabilityRefs:
+          - name: code-generation
+        # Optional task fields:
+        # inputs:
+        #   language: rust
+        #   style: functional
+        # outputs:
+        #   - generated_code
+        #   - test_file
+        # acceptanceCriteria:
+        #   - description: "Code compiles without warnings"
+        #   - description: "All tests pass"
+        # timeout: "1h"
+        # retries: 2
+        # when: "inputs.enabled == true"
+        # estimatedEffort: medium  # small | medium | large | xlarge
+
+      # Another task node
+      - id: ${NODE_2_ID}
+        kind: Task
+        description: "${NODE_2_DESCRIPTION}"
+        capabilityRefs:
+          - name: test-generation
+
+      # Gate node - requires separate Gate resource
+      - id: review-gate
+        kind: Gate
+        description: "Human review and approval"
+        gateRef:
+          name: ${PLAN_NAME}-review  # References Gate resource
+
+      # External node - external dependency
+      # - id: ci-check
+      #   kind: External
+      #   description: "Wait for CI pipeline"
+      #   externalRef:
+      #     type: uri
+      #     uri: "https://ci.example.com/status"
+      #   pollInterval: "30s"
+      #   timeout: "1h"
+
+      # Group node - logical grouping
+      # - id: implementation-phase
+      #   kind: Group
+      #   description: "All implementation tasks"
+      #   children:
+      #     - ${NODE_1_ID}
+      #     - ${NODE_2_ID}
+      #   mode: sequence  # parallel | sequence (hint only)
+
+    edges:
+      - from: ${NODE_1_ID}
+        to: ${NODE_2_ID}
+      - from: ${NODE_2_ID}
+        to: review-gate
+      # Edge types: hard (default), soft
+      # - from: a
+      #   to: b
+      #   type: soft  # Advisory dependency, doesn't block

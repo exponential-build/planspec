@@ -1,0 +1,30 @@
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: ${GOAL_NAME}
+  namespace: ${NAMESPACE:-default}
+spec:
+  description: "${DESCRIPTION}"
+  acceptanceCriteria:
+    - description: "${CRITERION_1}"
+    - description: "${CRITERION_2}"
+  # Optional: constraints on implementation
+  # constraints:
+  #   language: rust
+  #   framework: axum
+  # Optional: additional context for planners
+  # context:
+  #   - name: background
+  #     format: markdown
+  #     content: |
+  #       ## Background
+  #       This goal addresses the need for...
+  #   - name: requirements
+  #     format: markdown
+  #     content: |
+  #       ## Requirements
+  #       - Must be backwards compatible
+  #       - Should complete within 2 weeks
+  # Optional: deadline
+  # timeout: "168h"
+  priority: ${PRIORITY:-100}

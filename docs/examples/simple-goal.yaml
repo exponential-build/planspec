@@ -1,0 +1,136 @@
+# Simple Goal Example
+#
+# A basic Goal with acceptance criteria and a simple Plan.
+# This example demonstrates the core PlanSpec workflow.
+---
+apiVersion: planspec.io/v1alpha1
+kind: Goal
+metadata:
+  name: add-logout-button
+  namespace: team-frontend
+  labels:
+    team: frontend
+    priority: medium
+spec:
+  description: "Add a logout button to the user profile page"
+  constraints:
+    framework: react
+    component: UserProfile
+  acceptanceCriteria:
+    - description: "Logout button is visible on the user profile page"
+    - description: "Clicking the button clears the session and redirects to login"
+    - description: "Unit tests pass"
+  timeout: "24h"
+  priority: 5
+---
+apiVersion: planspec.io/v1alpha1
+kind: Plan
+metadata:
+  name: add-logout-button-v1
+  namespace: team-frontend
+  labels:
+    planspec.io/goal: add-logout-button
+    planspec.io/series: logout-button
+    planspec.io/version: "1"
+spec:
+  goalRef:
+    name: add-logout-button
+  series: logout-button
+  version: "1"
+  description: "Implementation plan for adding logout button"
+  graph:
+    nodes:
+      - id: analyze
+        kind: Task
+        description: "Analyze UserProfile component structure"
+        capabilityRefs:
+          - name: code-analysis
+        timeout: "30m"
+
+      - id: implement
+        kind: Task
+        description: "Add logout button to UserProfile component"
+        capabilityRefs:
+          - name: code-generation
+        inputs:
+          framework: react
+          targetFile: "src/components/UserProfile.tsx"
+        timeout: "1h"
+        retries: 2
+
+      - id: test
+        kind: Task
+        description: "Add unit tests for logout functionality"
+        capabilityRefs:
+          - name: test-generation
+        timeout: "30m"
+
+      - id: verify
+        kind: Task
+        description: "Run test suite to verify changes"
+        capabilityRefs:
+          - name: test-execution
+        timeout: "15m"
+
+    edges:
+      - from: analyze
+        to: implement
+      - from: implement
+        to: test
+      - from: test
+        to: verify
+---
+apiVersion: planspec.io/v1alpha1
+kind: Binding
+metadata:
+  name: frontend-bindings
+  namespace: team-frontend
+spec:
+  rules:
+    - selector:
+        capabilityRef:
+          name: code-analysis
+      target:
+        provider: "agent://claude-sonnet"
+        config:
+          model: claude-sonnet-4
+
+    - selector:
+        capabilityRef:
+          name: code-generation
+      target:
+        provider: "agent://claude-opus"
+        config:
+          model: claude-opus-4
+
+    - selector:
+        capabilityRef:
+          name: test-generation
+      target:
+        provider: "agent://claude-sonnet"
+
+    - selector:
+        capabilityRef:
+          name: test-execution
+      target:
+        provider: "tool://jest-runner"
+---
+apiVersion: planspec.io/v1alpha1
+kind: Execution
+metadata:
+  name: add-logout-button-exec-001
+  namespace: team-frontend
+  ownerReferences:
+    - apiVersion: planspec.io/v1alpha1
+      kind: Goal
+      name: add-logout-button
+      uid: placeholder-uid
+spec:
+  goalRef:
+    name: add-logout-button
+  planRef:
+    name: add-logout-button-v1
+  bindingRef:
+    name: frontend-bindings
+  parameters:
+    dryRun: false
