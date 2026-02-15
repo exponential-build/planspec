@@ -101,6 +101,25 @@ jobs:
       - name: Validate example specs
         run: target/release/planspec validate -d docs/examples -R
 
+  validate-skill:
+    name: Validate Agent Skill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify skill structure
+        run: |
+          test -f skills/planspec/SKILL.md
+          test -d skills/planspec/references
+          test -d skills/planspec/scripts
+          test -d skills/planspec/assets
+
+      - name: Verify scripts are executable
+        run: |
+          for script in skills/planspec/scripts/*.sh; do
+            test -x "$script" || { echo "$script is not executable"; exit 1; }
+          done
+
   schema-validation:
     name: Schema Validation
     runs-on: ubuntu-latest
