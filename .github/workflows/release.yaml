@@ -66,7 +66,7 @@ jobs:
             ${{ matrix.name }}.tar.gz.sha256
 
   skill:
-    name: Package Claude Code Skill
+    name: Package Agent Skill
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,16 +74,16 @@ jobs:
       - name: Package skill
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
-          tar -czvf planspec-claude-code-skill-${VERSION}.tar.gz -C .claude/skills planspec
-          shasum -a 256 planspec-claude-code-skill-${VERSION}.tar.gz > planspec-claude-code-skill-${VERSION}.tar.gz.sha256
+          tar -czvf planspec-agent-skill-${VERSION}.tar.gz -C skills planspec
+          shasum -a 256 planspec-agent-skill-${VERSION}.tar.gz > planspec-agent-skill-${VERSION}.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: planspec-claude-code-skill
+          name: planspec-agent-skill
           path: |
-            planspec-claude-code-skill-*.tar.gz
-            planspec-claude-code-skill-*.tar.gz.sha256
+            planspec-agent-skill-*.tar.gz
+            planspec-agent-skill-*.tar.gz.sha256
 
   release:
     name: Create Release
